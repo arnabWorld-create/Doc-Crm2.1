@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database with sample data...');
+  // Seeding database with sample data
 
   // Clear existing data
   await prisma.visit.deleteMany();
@@ -22,7 +22,7 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('✅ Demo user created:', demoUser.email);
+  // Demo user created
 
   // Create default user - Demo User
   const hashedPassword = await bcrypt.hash('compass1234', 8);
@@ -35,7 +35,7 @@ async function main() {
       isActive: true,
     },
   });
-  console.log('✅ Default user created:', user.email);
+  // Default user created
 
   // Create sample patients with visits - Indian data
   const patients = [
@@ -344,13 +344,12 @@ async function main() {
     });
   }
 
-  console.log('✅ Sample patients and visits created successfully!');
-  console.log(`📊 Created ${patients.length} patients with multiple visits`);
+  // Sample patients and visits created successfully
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error seeding database:', e);
+    // Error seeding database
     process.exit(1);
   })
   .finally(async () => {
