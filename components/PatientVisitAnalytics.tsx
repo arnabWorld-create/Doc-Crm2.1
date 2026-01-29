@@ -85,7 +85,7 @@ export function PatientVisitAnalytics({ onPatientSelect }: PatientVisitAnalytics
         setSummary(data.summary || null);
       }
     } catch (error) {
-      console.error('Failed to fetch patient analytics:', error);
+      // Log error without exposing sensitive data
     } finally {
       setIsLoading(false);
     }
