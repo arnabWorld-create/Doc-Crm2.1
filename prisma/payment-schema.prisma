@@ -1,0 +1,185 @@
+// Payment-related models for Prisma schema
+// Add these to your prisma/schema.prisma file
+
+model Payment {
+  id            String   @id @default(cuid())
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // Payment details
+  amount        Float
+  currency      String   @default("USD")
+  status        String   @default("pending") // pending, processing, succeeded, failed, refunded
+  paymentMethod String?  // card, upi, wallet, bank_transfer
+  
+  // Provider details
+  provider      String   @default("stripe") // stripe, razorpay, paypal
+  providerPaymentId String? @unique
+  
+  // Invoice reference
+  invoiceId     String?
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  // Metadata
+  description   String?
+  metadata      String?  // JSON string
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Refund
+  refunds       Refund[]
+
+  @@map("payments")
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Refund {
+  id            String   @id @default(cuid())
+  paymentId     String
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  // Refund details
+  amount        Float
+  reason        String?
+  status        String   @default("pending") // pending, succeeded, failed
+  
+  // Provider details
+  providerRefundId String? @unique
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("refunds")
+  @@index([paymentId])
+  @@index([status])
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // Invoice details
+  amount          Float
+  currency        String   @default("USD")
+  status          String   @default("draft") // draft, sent, paid, overdue, canceled
+  
+  // Items
+  items           InvoiceItem[]
+  
+  // Dates
+  issuedDate      DateTime @default(now())
+  dueDate         DateTime
+  paidDate        DateTime?
+  
+  // Additional info
+  notes           String?
+  metadata        String?  // JSON string
+  
+  // Payments
+  payments        Payment[]
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("invoices")
+  @@index([patientId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  // Item details
+  description String
+  quantity    Int
+  unitPrice   Float
+  total       Float
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("invoice_items")
+  @@index([invoiceId])
+}
+
+model Subscription {
+  id                  String   @id @default(cuid())
+  patientId           String
+  patient             Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // Subscription details
+  planId              String
+  plan                SubscriptionPlan @relation(fields: [planId], references: [id])
+  status              String   @default("active") // active, paused, canceled, expired
+  
+  // Provider details
+  provider            String   @default("stripe")
+  providerSubscriptionId String? @unique
+  
+  // Dates
+  currentPeriodStart  DateTime
+  currentPeriodEnd    DateTime
+  canceledAt          DateTime?
+  
+  // Metadata
+  metadata            String?  // JSON string
+  
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@map("subscriptions")
+  @@index([patientId])
+  @@index([status])
+}
+
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  
+  // Plan details
+  name            String
+  description     String?
+  amount          Float
+  currency        String   @default("USD")
+  
+  // Billing cycle
+  interval        String   @default("month") // month, year
+  intervalCount   Int      @default(1)
+  
+  // Trial
+  trialDays       Int?
+  
+  // Features
+  features        String?  // JSON string (array of features)
+  
+  // Status
+  isActive        Boolean  @default(true)
+  
+  // Relations
+  subscriptions   Subscription[]
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("subscription_plans")
+  @@index([isActive])
+}
+
+// Update Patient model to include payment relations
+// Add these fields to the existing Patient model:
+// payments       Payment[]
+// invoices       Invoice[]
+// subscriptions  Subscription[]

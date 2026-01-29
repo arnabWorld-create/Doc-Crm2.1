@@ -1,0 +1,312 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String   // hashed password
+  name          String
+  role          String   @default("doctor") // doctor, admin, staff
+  isActive      Boolean  @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Patient {
+  id                String        @id @default(cuid())
+  patientId         String        @unique // FC-001, FC-002, etc.
+  name              String
+  age               Int?
+  gender            String?
+  contact           String?
+  address           String?
+  bloodGroup        String?
+  allergies         String?
+  chronicConditions String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  visits            Visit[]
+  appointments      Appointment[]
+  invoices          Invoice[]
+  payments          Payment[]
+
+  @@map("patients")
+}
+
+model Visit {
+  id                String    @id @default(cuid())
+  patientId         String
+  patient           Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  visitDate         DateTime  @default(now())
+  visitType         String    @default("Consultation") // Consultation, Follow-up, Emergency
+  
+  // Vitals
+  temp              Float?
+  spo2              Int?
+  pulse             Int?
+  bloodPressure     String?    // e.g., "120/80"
+  bpSystolic        Int?       // Systolic BP (mmHg)
+  bpDiastolic       Int?       // Diastolic BP (mmHg)
+  rbs               Int?       // Random Blood Sugar (mg/dl)
+  weight            Float?
+  
+  // Medical Details
+  chiefComplaint    String?   // Main reason for visit
+  signs             String?   // Signs & Symptoms
+  investigations    String?
+  diagnosis         String?   // Diagnosis/Condition
+  treatment         String?
+  medicines         String?   // Legacy field - kept for backward compatibility
+  notes             String?   // Additional notes
+  
+  // Files and referrals
+  reports           String?   // JSON string for file uploads
+  referredTo        String?
+  
+  // Follow-up
+  followUpDate      DateTime?
+  followUpNotes     String?
+  
+  // Payment
+  paidBy            String?   // cash, upi, card
+  
+  // Relations
+  medications       Medication[]
+  
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@map("visits")
+  @@index([patientId])
+  @@index([visitDate])
+}
+
+model CustomMedicine {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  usageCount  Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("custom_medicines")
+}
+
+model Medication {
+  id            String   @id @default(cuid())
+  visitId       String
+  visit         Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  
+  // Medicine Details
+  medicine      String   // Medicine name (e.g., "Generic")
+  dose          String?  // e.g., "1 tablet", "5ml"
+  frequency     String?  // e.g., "1-0-1 etc"
+  timing        String?  // e.g., "After meal", "Before meal"
+  duration      String?  // e.g., "7 days", "3 days"
+  startFrom     String?  // e.g., "3 day", start date
+  instructions  String?  // Additional instructions (e.g., "if any")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("medications")
+  @@index([visitId])
+}
+
+model ClinicProfile {
+  id                String   @id @default(cuid())
+  
+  // Clinic Information
+  clinicName        String   @default("DoXcia")
+  address           String?
+  city              String?
+  state             String?
+  pincode           String?
+  phone             String?
+  email             String?
+  website           String?
+  
+  // Clinic Hours
+  workingHours      String?  @default("Mon-Sat: 9:00 AM - 8:00 PM | Sun: 10:00 AM - 2:00 PM")
+  
+  // Doctor Information
+  doctorName        String?
+  doctorQualification String?
+  registrationNumber String?
+  specialization    String?
+  
+  // Additional
+  logo              String?  // URL to logo image
+  tagline           String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("clinic_profile")
+}
+
+model Appointment {
+  id                String   @id @default(cuid())
+  patientId         String?
+  patient           Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // For walk-in/new patients (before patient record is created)
+  tempPatientName   String?
+  tempPatientContact String?
+  
+  // Appointment Details
+  appointmentDate   DateTime
+  appointmentTime   String   // e.g., "10:00 AM", "2:30 PM"
+  duration          Int      @default(30) // Duration in minutes
+  appointmentType   String   @default("Consultation") // Consultation, Follow-up, Check-up, Emergency
+  
+  // Status
+  status            String   @default("Scheduled") // Scheduled, Confirmed, Completed, Cancelled, No-Show
+  
+  // Additional Info
+  reason            String?  // Reason for appointment
+  notes             String?  // Internal notes
+  reminderSent      Boolean  @default(false)
+  
+  // Linked Visit (if appointment is completed)
+  visitId           String?  @unique
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("appointments")
+  @@index([patientId])
+  @@index([appointmentDate])
+  @@index([status])
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  patientId       String
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  visitId         String?
+  
+  // Invoice details
+  amount          Float
+  currency        String   @default("INR")
+  status          String   @default("pending") // draft, sent, paid, overdue, canceled
+  
+  // Items
+  items           InvoiceItem[]
+  
+  // Dates
+  issuedDate      DateTime @default(now())
+  dueDate         DateTime
+  paidDate        DateTime?
+  
+  // Additional info
+  notes           String?
+  metadata        String?  // JSON string
+  
+  // Payments
+  payments        Payment[]
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("invoices")
+  @@index([patientId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  // Item details
+  description String
+  quantity    Int
+  unitPrice   Float
+  discount    Int      @default(0)
+  total       Float
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("invoice_items")
+  @@index([invoiceId])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  patientId     String
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // Payment details
+  amount        Float
+  currency      String   @default("INR")
+  status        String   @default("pending") // pending, processing, succeeded, failed, refunded
+  paymentMethod String?  // card, upi, wallet, bank_transfer
+  
+  // Provider details
+  provider      String   @default("stripe") // stripe, razorpay, paypal
+  providerPaymentId String? @unique
+  
+  // Invoice reference
+  invoiceId     String?
+  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
+  
+  // Metadata
+  description   String?
+  metadata      String?  // JSON string
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Refund
+  refunds       Refund[]
+
+  @@map("payments")
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Refund {
+  id            String   @id @default(cuid())
+  paymentId     String
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  // Refund details
+  amount        Float
+  reason        String?
+  status        String   @default("pending") // pending, succeeded, failed
+  
+  // Provider details
+  providerRefundId String? @unique
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("refunds")
+  @@index([paymentId])
+  @@index([status])
+}
