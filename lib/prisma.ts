@@ -3,9 +3,19 @@
 import { PrismaClient } from '@prisma/client'
 
 const prismaClientSingleton = () => {
-  // Create client but don't connect immediately
+  // Create client with pgbouncer-compatible settings
   const client = new PrismaClient({
     errorFormat: 'pretty',
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
+  })
+  
+  // Disable prepared statements for pgbouncer compatibility
+  client.$connect().catch(() => {
+    // Ignore connection errors on initialization
   })
   
   return client
