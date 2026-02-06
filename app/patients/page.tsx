@@ -2,6 +2,9 @@ import PatientTable from '@/components/PatientTable';
 import prisma from '@/lib/prisma';
 import { Suspense } from 'react';
 
+// Force dynamic rendering - don't pre-render at build time
+export const dynamic = 'force-dynamic';
+
 // Cache patients page for 2 minutes
 export const revalidate = 120;
 
