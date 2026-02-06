@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background: #0891b2;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0e7490;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Login API</h1>
+    
+    <h2>Test Simple Login (No Middleware)</h2>
+    <button onclick="testSimpleLogin()">Test Simple Login</button>
+    
+    <h2>Test Regular Login (With Middleware)</h2>
+    <button onclick="testRegularLogin()">Test Regular Login</button>
+    
+    <h2>Test Login (Test Endpoint)</h2>
+    <button onclick="testTestLogin()">Test Test Login</button>
+    
+    <div id="result"></div>
+
+    <script>
+        async function testSimpleLogin() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = '';
+            
+            try {
+                const response = await fetch('https://doccrm21.vercel.app/api/auth/simple-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'admin@doxcia.com', 
+                        password: 'admin123' 
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = `Status: ${response.status}\n\n${JSON.stringify(data, null, 2)}`;
+                resultDiv.className = response.ok ? 'success' : 'error';
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+                resultDiv.className = 'error';
+            }
+        }
+
+        async function testRegularLogin() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = '';
+            
+            try {
+                const response = await fetch('https://doccrm21.vercel.app/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'admin@doxcia.com', 
+                        password: 'admin123' 
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = `Status: ${response.status}\n\n${JSON.stringify(data, null, 2)}`;
+                resultDiv.className = response.ok ? 'success' : 'error';
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+                resultDiv.className = 'error';
+            }
+        }
+
+        async function testTestLogin() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = '';
+            
+            try {
+                const response = await fetch('https://doccrm21.vercel.app/api/auth/test-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        email: 'admin@doxcia.com', 
+                        password: 'admin123' 
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                resultDiv.textContent = `Status: ${response.status}\n\n${JSON.stringify(data, null, 2)}`;
+                resultDiv.className = response.ok ? 'success' : 'error';
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error.message}`;
+                resultDiv.className = 'error';
+            }
+        }
+    </script>
+</body>
+</html>
