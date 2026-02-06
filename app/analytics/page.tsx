@@ -2,6 +2,9 @@ import prisma from '@/lib/prisma';
 import { Users, Calendar, TrendingUp, Activity, UserCheck, Clock, AlertCircle, CheckCircle, Stethoscope } from 'lucide-react';
 import { unstable_cache } from 'next/cache';
 
+// Force dynamic rendering - don't try to pre-render at build time
+export const dynamic = 'force-dynamic';
+
 // Cache analytics for 5 minutes (300 seconds) - balance between freshness and performance
 export const revalidate = 300;
 

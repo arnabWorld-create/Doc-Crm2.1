@@ -282,7 +282,7 @@ export const GET = withMiddleware(
         request
       );
     } catch (error) {
-      logger.error('Patient analytics error', { error: error.message });
+      logger.error('Patient analytics error', { error: error instanceof Error ? error.message : 'Unknown error' });
       throw error;
     }
   },

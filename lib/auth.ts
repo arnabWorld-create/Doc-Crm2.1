@@ -7,6 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
+
 const JWT_EXPIRY = '7d';
 
 export async function hashPassword(password: string): Promise<string> {
@@ -20,6 +21,9 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 export function generateToken(userId: string, email: string): string {
+  if (!JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured');
+  }
   return jwt.sign(
     { userId, email },
     JWT_SECRET,
@@ -29,6 +33,9 @@ export function generateToken(userId: string, email: string): string {
 
 export function verifyToken(token: string): { userId: string; email: string } | null {
   try {
+    if (!JWT_SECRET) {
+      throw new Error('JWT_SECRET is not configured');
+    }
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
     return decoded;
   } catch (error) {
