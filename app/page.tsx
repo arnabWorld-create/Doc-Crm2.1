@@ -8,7 +8,7 @@ import {
   Star, Calendar, Clock, MapPin, Phone, Mail, LogIn, Menu,
   Award, Heart, Users, TrendingUp, Activity, Droplet, Eye, 
   Shield, Stethoscope, Syringe, Pill, Quote, MessageCircle,
-  Instagram, Video
+  Instagram, Video, X
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -22,12 +22,9 @@ export default function LandingPage() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-3">
-              <Image 
-                src="/landing-assets/clinic-logo.png" 
-                alt="DoXcia Logo" 
-                width={56}
-                height={56}
-              />
+              <div className="bg-brand-red p-2 rounded-xl">
+                <Stethoscope className="h-8 w-8 text-white" />
+              </div>
               <div>
                 <h1 className="text-xl font-bold">Do<span className="text-brand-red">X</span><span className="text-brand-yellow">cia</span></h1>
                 <p className="text-xs text-gray-600">Medical Practice</p>
@@ -525,12 +522,9 @@ function FooterSection() {
         <div className="grid md:grid-cols-4 gap-8 mb-8">
           <div className="md:col-span-2">
             <div className="flex items-center space-x-3 mb-4">
-              <Image 
-                src="/landing-assets/clinic-logo.png" 
-                alt="DoXcia Logo" 
-                width={48}
-                height={48}
-              />
+              <div className="bg-brand-red p-2 rounded-xl">
+                <Stethoscope className="h-6 w-6 text-white" />
+              </div>
               <div>
                 <h3 className="text-lg font-bold">Do<span className="text-brand-red">X</span><span className="text-brand-yellow">cia</span></h3>
                 <p className="text-sm text-gray-600">Medical Practice</p>
