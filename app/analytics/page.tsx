@@ -5,8 +5,73 @@ import { unstable_cache } from 'next/cache';
 // Force dynamic rendering - don't try to pre-render at build time
 export const dynamic = 'force-dynamic';
 
-// Cache analytics for 2 minutes (120 seconds) - faster refresh
-export const revalidate = 120;
+// Cache analytics for 5 minutes (300 seconds) - balance between freshness and performance
+export const revalidate = 300;
+
+// Cache the medical data analysis separately
+const getCachedMedicalAnalysis = unstable_cache(
+  async () => {
+    // Get visits with signs/symptoms and medicines (limit to last 500 for performance)
+    const visitsWithData = await prisma.visit.findMany({
+      select: {
+        signs: true,
+        medicines: true,
+      },
+      where: {
+        OR: [
+          { signs: { not: null } },
+          { medicines: { not: null } },
+        ],
+      },
+      orderBy: { visitDate: 'desc' },
+      take: 500,
+    });
+
+    // Import improved detection functions
+    const { detectConditions, extractMedicines, groupMedicines } = await import('@/lib/medicalData');
+
+    // Analyze common conditions/diseases from signs
+    const conditionCount: { [key: string]: number } = {};
+    visitsWithData.forEach((visit) => {
+      if (visit.signs) {
+        const detectedConditions = detectConditions(visit.signs);
+        detectedConditions.forEach((condition) => {
+          conditionCount[condition] = (conditionCount[condition] || 0) + 1;
+        });
+      }
+    });
+
+    // Analyze common medicines
+    const allMedicines: string[] = [];
+    visitsWithData.forEach((visit) => {
+      if (visit.medicines) {
+        const medicines = extractMedicines(visit.medicines);
+        allMedicines.push(...medicines);
+      }
+    });
+
+    // Group similar medicines together
+    const medicineCount = groupMedicines(allMedicines);
+
+    // Get top 10 conditions and medicines
+    const topConditions = Object.entries(conditionCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name, count]) => ({ name, count }));
+
+    const topMedicines = Object.entries(medicineCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name, count]) => ({ name, count }));
+
+    return { topConditions, topMedicines };
+  },
+  ['medical-analysis'],
+  {
+    revalidate: 300, // Cache for 5 minutes
+    tags: ['medical-analysis'],
+  }
+);
 
 const AnalyticsPage = async () => {
   const today = new Date();
@@ -94,60 +159,9 @@ const AnalyticsPage = async () => {
   // Calculate average patients per day
   const avgPatientsPerDay = (patientsThisMonth / today.getDate()).toFixed(1);
 
-  // Get visits with signs/symptoms and medicines (limit to last 500 for performance)
-  const visitsWithData = await prisma.visit.findMany({
-    select: {
-      signs: true,
-      medicines: true,
-    },
-    where: {
-      OR: [
-        { signs: { not: null } },
-        { medicines: { not: null } },
-      ],
-    },
-    orderBy: { visitDate: 'desc' },
-    take: 500, // Reduced from 1000 for faster loading
-  });
+  // Get cached medical analysis (conditions and medicines) - much faster!
+  const { topConditions, topMedicines } = await getCachedMedicalAnalysis();
 
-  // Import improved detection functions
-  const { detectConditions, extractMedicines, groupMedicines } = await import('@/lib/medicalData');
-
-  // Analyze common conditions/diseases from signs using improved detection
-  const conditionCount: { [key: string]: number } = {};
-  visitsWithData.forEach((visit) => {
-    if (visit.signs) {
-      const detectedConditions = detectConditions(visit.signs);
-      detectedConditions.forEach((condition) => {
-        conditionCount[condition] = (conditionCount[condition] || 0) + 1;
-      });
-    }
-  });
-
-  // Analyze common medicines using improved normalization
-  const allMedicines: string[] = [];
-  visitsWithData.forEach((visit) => {
-    if (visit.medicines) {
-      const medicines = extractMedicines(visit.medicines);
-      allMedicines.push(...medicines);
-    }
-  });
-
-  // Group similar medicines together
-  const medicineCount = groupMedicines(allMedicines);
-
-  // Get top 10 conditions and medicines
-  const topConditions = Object.entries(conditionCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([name, count]) => ({ name, count }));
-
-  const topMedicines = Object.entries(medicineCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([name, count]) => ({ name, count }));
-
-  // Gender distribution - already fetched above
   // Age groups - fetch only age field
   const patients = await prisma.patient.findMany({
     select: { age: true },
