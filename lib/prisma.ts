@@ -1,9 +1,9 @@
 // FIX: Switched from a namespace import to a named import for the Prisma client to resolve module resolution issues.
-// NOTE: Using Supabase REST API instead of direct Prisma connection due to firewall restrictions on port 5432
+// NOTE: Using Supabase with connection pooling for serverless compatibility
 import { PrismaClient } from '@prisma/client'
 
 const prismaClientSingleton = () => {
-  // Create client with pgbouncer-compatible settings
+  // Create client with pgbouncer-compatible settings for serverless
   const client = new PrismaClient({
     errorFormat: 'pretty',
     datasources: {
@@ -11,11 +11,7 @@ const prismaClientSingleton = () => {
         url: process.env.DATABASE_URL,
       },
     },
-  })
-  
-  // Disable prepared statements for pgbouncer compatibility
-  client.$connect().catch(() => {
-    // Ignore connection errors on initialization
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
   
   return client
@@ -30,3 +26,11 @@ const prisma = globalThis.prisma ?? prismaClientSingleton()
 export default prisma
 
 if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma
+
+// Ensure proper cleanup on serverless
+if (process.env.NODE_ENV === 'production') {
+  // Don't keep connections open in serverless
+  process.on('beforeExit', async () => {
+    await prisma.$disconnect()
+  })
+}
