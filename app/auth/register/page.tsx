@@ -66,9 +66,9 @@ export default function RegisterPage() {
             </div>
             <div>
               <h1 className="text-3xl font-extrabold text-white">
-                Do<span className="text-brand-red">X</span><span className="text-brand-yellow">cia</span>
+                Do<span className="text-brand-red">X</span>cia
               </h1>
-              <p className="text-brand-yellow text-sm">Patient Management</p>
+              <p className="text-gray-200 text-sm">Patient Management</p>
             </div>
           </div>
         </div>

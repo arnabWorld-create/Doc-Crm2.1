@@ -77,8 +77,8 @@ const Navbar = () => {
               <div className="bg-brand-red p-1.5 sm:p-2 rounded-lg sm:rounded-xl group-hover:scale-110 transition-transform">
                 <Stethoscope className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
               </div>
-              <span className="text-lg sm:text-2xl md:text-3xl font-extrabold text-brand-teal">
-                DoXcia
+              <span className="text-lg sm:text-2xl md:text-3xl font-extrabold text-gray-800">
+                Do<span className="text-brand-red">X</span>cia
               </span>
             </Link>
             <div className="hidden md:flex items-center space-x-1">
