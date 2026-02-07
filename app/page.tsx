@@ -26,7 +26,7 @@ export default function LandingPage() {
                 <Stethoscope className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-800">Do<span className="text-brand-red">X</span>cia</h1>
+                <h1 className="text-xl font-bold text-brand-teal">DoXcia</h1>
                 <p className="text-xs text-gray-600">Medical Practice</p>
               </div>
             </div>
@@ -526,7 +526,7 @@ function FooterSection() {
                 <Stethoscope className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-800">Do<span className="text-brand-red">X</span>cia</h3>
+                <h3 className="text-lg font-bold text-brand-teal">DoXcia</h3>
                 <p className="text-sm text-gray-600">Medical Practice</p>
               </div>
             </div>

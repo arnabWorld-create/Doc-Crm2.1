@@ -65,10 +65,10 @@ export default function RegisterPage() {
               <Stethoscope className="h-8 w-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-extrabold text-white">
-                Do<span className="text-brand-red">X</span>cia
+              <h1 className="text-3xl font-extrabold text-brand-teal">
+                DoXcia
               </h1>
-              <p className="text-gray-200 text-sm">Patient Management</p>
+              <p className="text-brand-teal text-sm">Patient Management</p>
             </div>
           </div>
         </div>
