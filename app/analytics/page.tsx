@@ -209,7 +209,7 @@ const AnalyticsPage = async () => {
   });
 
   // Group patients by week in JavaScript (much faster than 8 separate queries)
-  const weeksData = [];
+  const weeksData: Array<{ weekStart: Date; weekEnd: Date; count: number; label: string }> = [];
   for (let i = 7; i >= 0; i--) {
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - (i * 7) - today.getDay());
