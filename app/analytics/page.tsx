@@ -162,10 +162,10 @@ const AnalyticsPage = async () => {
   // Get cached medical analysis (conditions and medicines) - much faster!
   const { topConditions, topMedicines } = await getCachedMedicalAnalysis();
 
-  // Age groups - fetch only age field
+  // Age groups - fetch only age field (already optimized with single query)
   const patients = await prisma.patient.findMany({
     select: { age: true },
-    where: { age: { not: null } }, // Only fetch patients with age
+    where: { age: { not: null } },
   });
 
   const ageGroups = {
@@ -194,9 +194,22 @@ const AnalyticsPage = async () => {
     ? ((patientsWithCompleteRecords / totalPatients) * 100).toFixed(1)
     : '0';
 
-  // Appointment Types - already fetched above
-  // Week on Week New Patient Registrations (last 8 weeks) - batch queries
-  const weekPromises = [];
+  // Week on Week New Patient Registrations (last 8 weeks) - OPTIMIZED: Single query
+  const eightWeeksAgo = new Date(today);
+  eightWeeksAgo.setDate(today.getDate() - (7 * 7)); // 7 weeks ago
+  eightWeeksAgo.setHours(0, 0, 0, 0);
+  
+  // Fetch all patients from last 8 weeks in ONE query
+  const recentPatients = await prisma.patient.findMany({
+    select: { createdAt: true },
+    where: {
+      createdAt: { gte: eightWeeksAgo },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  // Group patients by week in JavaScript (much faster than 8 separate queries)
+  const weeksData = [];
   for (let i = 7; i >= 0; i--) {
     const weekStart = new Date(today);
     weekStart.setDate(today.getDate() - (i * 7) - today.getDay());
@@ -205,24 +218,18 @@ const AnalyticsPage = async () => {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 7);
     
-    weekPromises.push(
-      prisma.patient.count({
-        where: {
-          createdAt: {
-            gte: weekStart,
-            lt: weekEnd,
-          },
-        },
-      }).then(count => ({
-        weekStart,
-        weekEnd,
-        count,
-        label: `Week ${8 - i}`,
-      }))
-    );
+    const count = recentPatients.filter(p => {
+      const createdAt = new Date(p.createdAt);
+      return createdAt >= weekStart && createdAt < weekEnd;
+    }).length;
+    
+    weeksData.push({
+      weekStart,
+      weekEnd,
+      count,
+      label: `Week ${8 - i}`,
+    });
   }
-  
-  const weeksData = await Promise.all(weekPromises);
 
   return (
     <div className="space-y-4 sm:space-y-6">
