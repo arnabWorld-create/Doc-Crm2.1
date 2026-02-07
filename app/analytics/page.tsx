@@ -86,75 +86,77 @@ const AnalyticsPage = async () => {
   const todayEnd = new Date(today);
   todayEnd.setHours(23, 59, 59, 999);
 
-  // OPTIMIZED: Fetch data in smaller batches to avoid connection pool exhaustion
-  // Batch 1: Patient counts (5 queries)
-  const [
-    totalPatients,
-    patientsThisMonth,
-    patientsLastMonth,
-    patientsThisWeek,
-    patientsWithCompleteRecords,
-  ] = await Promise.all([
-    prisma.patient.count(),
-    prisma.patient.count({
-      where: { createdAt: { gte: startOfMonth } },
-    }),
-    prisma.patient.count({
-      where: { createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
-    }),
-    prisma.patient.count({
-      where: { createdAt: { gte: startOfWeek } },
-    }),
-    prisma.patient.count({
-      where: {
-        visits: {
-          some: {
-            signs: { not: null },
-          },
-        },
-      },
-    }),
-  ]);
+  // SUPER OPTIMIZED: Combine ALL patient queries into ONE with raw SQL
+  const patientStats = await prisma.$queryRaw<Array<{
+    total: bigint;
+    this_month: bigint;
+    last_month: bigint;
+    this_week: bigint;
+    with_records: bigint;
+    male: bigint;
+    female: bigint;
+    other: bigint;
+  }>>`
+    SELECT 
+      COUNT(*)::bigint as total,
+      COUNT(*) FILTER (WHERE "createdAt" >= ${startOfMonth})::bigint as this_month,
+      COUNT(*) FILTER (WHERE "createdAt" >= ${startOfLastMonth} AND "createdAt" <= ${endOfLastMonth})::bigint as last_month,
+      COUNT(*) FILTER (WHERE "createdAt" >= ${startOfWeek})::bigint as this_week,
+      COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM visits WHERE visits."patientId" = patients.id AND signs IS NOT NULL))::bigint as with_records,
+      COUNT(*) FILTER (WHERE gender = 'Male')::bigint as male,
+      COUNT(*) FILTER (WHERE gender = 'Female')::bigint as female,
+      COUNT(*) FILTER (WHERE gender = 'Other')::bigint as other
+    FROM patients
+  `;
 
-  // Batch 2: Gender distribution (3 queries)
-  const [maleCount, femaleCount, otherCount] = await Promise.all([
-    prisma.patient.count({ where: { gender: 'Male' } }),
-    prisma.patient.count({ where: { gender: 'Female' } }),
-    prisma.patient.count({ where: { gender: 'Other' } }),
-  ]);
+  const stats = patientStats[0];
+  const totalPatients = Number(stats.total);
+  const patientsThisMonth = Number(stats.this_month);
+  const patientsLastMonth = Number(stats.last_month);
+  const patientsThisWeek = Number(stats.this_week);
+  const patientsWithCompleteRecords = Number(stats.with_records);
+  const maleCount = Number(stats.male);
+  const femaleCount = Number(stats.female);
+  const otherCount = Number(stats.other);
 
-  // Batch 3: Visit counts (4 queries)
-  const [
-    consultationsToday,
-    upcomingFollowUps,
-    followUpsThisWeek,
-    overdueFollowUps,
-  ] = await Promise.all([
-    prisma.visit.count({
-      where: { visitDate: { gte: todayStart, lt: todayEnd } },
-    }),
-    prisma.visit.count({
-      where: { followUpDate: { gte: today } },
-    }),
-    prisma.visit.count({
-      where: {
-        followUpDate: {
-          gte: startOfWeek,
-          lt: new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000),
-        },
-      },
-    }),
-    prisma.visit.count({
-      where: { followUpDate: { lt: today } },
-    }),
-  ]);
+  // SUPER OPTIMIZED: Combine ALL visit queries into ONE
+  const visitStats = await prisma.$queryRaw<Array<{
+    today: bigint;
+    upcoming: bigint;
+    this_week: bigint;
+    overdue: bigint;
+  }>>`
+    SELECT 
+      COUNT(*) FILTER (WHERE "visitDate" >= ${todayStart} AND "visitDate" < ${todayEnd})::bigint as today,
+      COUNT(*) FILTER (WHERE "followUpDate" >= ${today})::bigint as upcoming,
+      COUNT(*) FILTER (WHERE "followUpDate" >= ${startOfWeek} AND "followUpDate" < ${new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000)})::bigint as this_week,
+      COUNT(*) FILTER (WHERE "followUpDate" < ${today})::bigint as overdue
+    FROM visits
+  `;
 
-  // Batch 4: Appointment counts (3 queries)
-  const [totalAppointments, oldPatientAppointments, newPatientAppointments] = await Promise.all([
-    prisma.appointment.count(),
-    prisma.appointment.count({ where: { patientId: { not: null } } }),
-    prisma.appointment.count({ where: { patientId: null } }),
-  ]);
+  const vStats = visitStats[0];
+  const consultationsToday = Number(vStats.today);
+  const upcomingFollowUps = Number(vStats.upcoming);
+  const followUpsThisWeek = Number(vStats.this_week);
+  const overdueFollowUps = Number(vStats.overdue);
+
+  // SUPER OPTIMIZED: Combine ALL appointment queries into ONE
+  const appointmentStats = await prisma.$queryRaw<Array<{
+    total: bigint;
+    with_patient: bigint;
+    without_patient: bigint;
+  }>>`
+    SELECT 
+      COUNT(*)::bigint as total,
+      COUNT(*) FILTER (WHERE "patientId" IS NOT NULL)::bigint as with_patient,
+      COUNT(*) FILTER (WHERE "patientId" IS NULL)::bigint as without_patient
+    FROM appointments
+  `;
+
+  const aStats = appointmentStats[0];
+  const totalAppointments = Number(aStats.total);
+  const oldPatientAppointments = Number(aStats.with_patient);
+  const newPatientAppointments = Number(aStats.without_patient);
 
   // Calculate average patients per day
   const avgPatientsPerDay = (patientsThisMonth / today.getDate()).toFixed(1);
