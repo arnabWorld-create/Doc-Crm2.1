@@ -278,15 +278,15 @@ const AnalyticsPage = async () => {
           <p className="text-xs sm:text-sm text-white/90">New Patients This Week</p>
         </div>
 
-        {/* Today's Consultations - White with Yellow accent */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border-2 border-brand-yellow hover:shadow-xl transition-all hover:scale-105">
+        {/* Today's Consultations - White with Red accent */}
+        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border-2 border-brand-red hover:shadow-xl transition-all hover:scale-105">
           <div className="flex items-center justify-between mb-3">
-            <div className="p-2 sm:p-3 bg-brand-yellow/10 rounded-lg">
-              <Stethoscope className="h-5 w-5 sm:h-6 sm:w-6 text-brand-yellow" />
+            <div className="p-2 sm:p-3 bg-brand-red/10 rounded-lg">
+              <Stethoscope className="h-5 w-5 sm:h-6 sm:w-6 text-brand-red" />
             </div>
-            <span className="text-xs sm:text-sm font-medium bg-brand-yellow/10 text-brand-yellow px-2 py-1 rounded">Today</span>
+            <span className="text-xs sm:text-sm font-medium bg-brand-red/10 text-brand-red px-2 py-1 rounded">Today</span>
           </div>
-          <h3 className="text-2xl sm:text-3xl font-bold text-brand-yellow mb-1">{consultationsToday}</h3>
+          <h3 className="text-2xl sm:text-3xl font-bold text-brand-red mb-1">{consultationsToday}</h3>
           <p className="text-xs sm:text-sm text-gray-600">Consultations Today</p>
         </div>
       </div>
@@ -629,9 +629,9 @@ const AnalyticsPage = async () => {
         {/* Frequently Prescribed Medicines */}
         <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border-2 border-gray-100">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h3 className="text-lg sm:text-xl font-bold text-brand-yellow">Top Prescribed Medicines</h3>
-            <div className="p-2 bg-brand-yellow/10 rounded-lg">
-              <Stethoscope className="h-5 w-5 text-brand-yellow" />
+            <h3 className="text-lg sm:text-xl font-bold text-brand-red">Top Prescribed Medicines</h3>
+            <div className="p-2 bg-brand-red/10 rounded-lg">
+              <Stethoscope className="h-5 w-5 text-brand-red" />
             </div>
           </div>
           {topMedicines.length > 0 ? (
@@ -639,7 +639,7 @@ const AnalyticsPage = async () => {
               {topMedicines.map((medicine, index) => (
                 <div key={medicine.name} className="flex items-center justify-between">
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-yellow/10 text-brand-yellow text-xs font-bold flex-shrink-0">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-red/10 text-brand-red text-xs font-bold flex-shrink-0">
                       {index + 1}
                     </span>
                     <span className="text-xs sm:text-sm font-medium text-gray-700 truncate">{medicine.name}</span>
