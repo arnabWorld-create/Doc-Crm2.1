@@ -5,8 +5,8 @@ import { unstable_cache } from 'next/cache';
 // Force dynamic rendering - don't try to pre-render at build time
 export const dynamic = 'force-dynamic';
 
-// Cache analytics for 5 minutes (300 seconds) - balance between freshness and performance
-export const revalidate = 300;
+// Cache analytics for 2 minutes (120 seconds) - faster refresh
+export const revalidate = 120;
 
 const AnalyticsPage = async () => {
   const today = new Date();
@@ -32,6 +32,12 @@ const AnalyticsPage = async () => {
     followUpsThisWeek,
     overdueFollowUps,
     patientsWithCompleteRecords,
+    maleCount,
+    femaleCount,
+    otherCount,
+    totalAppointments,
+    oldPatientAppointments,
+    newPatientAppointments,
   ] = await Promise.all([
     prisma.patient.count(),
     prisma.patient.count({
@@ -69,12 +75,18 @@ const AnalyticsPage = async () => {
         },
       },
     }),
+    prisma.patient.count({ where: { gender: 'Male' } }),
+    prisma.patient.count({ where: { gender: 'Female' } }),
+    prisma.patient.count({ where: { gender: 'Other' } }),
+    prisma.appointment.count(),
+    prisma.appointment.count({ where: { patientId: { not: null } } }),
+    prisma.appointment.count({ where: { patientId: null } }),
   ]);
 
   // Calculate average patients per day
   const avgPatientsPerDay = (patientsThisMonth / today.getDate()).toFixed(1);
 
-  // Get visits with signs/symptoms and medicines (limit to last 1000 for performance)
+  // Get visits with signs/symptoms and medicines (limit to last 500 for performance)
   const visitsWithData = await prisma.visit.findMany({
     select: {
       signs: true,
@@ -87,7 +99,7 @@ const AnalyticsPage = async () => {
       ],
     },
     orderBy: { visitDate: 'desc' },
-    take: 1000, // Limit to last 1000 visits for performance
+    take: 500, // Reduced from 1000 for faster loading
   });
 
   // Import improved detection functions
@@ -127,13 +139,7 @@ const AnalyticsPage = async () => {
     .slice(0, 10)
     .map(([name, count]) => ({ name, count }));
 
-  // Gender distribution - batch queries
-  const [maleCount, femaleCount, otherCount] = await Promise.all([
-    prisma.patient.count({ where: { gender: 'Male' } }),
-    prisma.patient.count({ where: { gender: 'Female' } }),
-    prisma.patient.count({ where: { gender: 'Other' } }),
-  ]);
-
+  // Gender distribution - already fetched above
   // Age groups - fetch only age field
   const patients = await prisma.patient.findMany({
     select: { age: true },
@@ -166,13 +172,7 @@ const AnalyticsPage = async () => {
     ? ((patientsWithCompleteRecords / totalPatients) * 100).toFixed(1)
     : '0';
 
-  // Appointment Types - batch queries
-  const [totalAppointments, oldPatientAppointments, newPatientAppointments] = await Promise.all([
-    prisma.appointment.count(),
-    prisma.appointment.count({ where: { patientId: { not: null } } }),
-    prisma.appointment.count({ where: { patientId: null } }),
-  ]);
-
+  // Appointment Types - already fetched above
   // Week on Week New Patient Registrations (last 8 weeks) - batch queries
   const weekPromises = [];
   for (let i = 7; i >= 0; i--) {
