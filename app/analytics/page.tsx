@@ -21,23 +21,14 @@ const AnalyticsPage = async () => {
   const todayEnd = new Date(today);
   todayEnd.setHours(23, 59, 59, 999);
 
-  // Batch all count queries together for better performance
+  // OPTIMIZED: Fetch data in smaller batches to avoid connection pool exhaustion
+  // Batch 1: Patient counts (5 queries)
   const [
     totalPatients,
     patientsThisMonth,
     patientsLastMonth,
     patientsThisWeek,
-    consultationsToday,
-    upcomingFollowUps,
-    followUpsThisWeek,
-    overdueFollowUps,
     patientsWithCompleteRecords,
-    maleCount,
-    femaleCount,
-    otherCount,
-    totalAppointments,
-    oldPatientAppointments,
-    newPatientAppointments,
   ] = await Promise.all([
     prisma.patient.count(),
     prisma.patient.count({
@@ -49,6 +40,31 @@ const AnalyticsPage = async () => {
     prisma.patient.count({
       where: { createdAt: { gte: startOfWeek } },
     }),
+    prisma.patient.count({
+      where: {
+        visits: {
+          some: {
+            signs: { not: null },
+          },
+        },
+      },
+    }),
+  ]);
+
+  // Batch 2: Gender distribution (3 queries)
+  const [maleCount, femaleCount, otherCount] = await Promise.all([
+    prisma.patient.count({ where: { gender: 'Male' } }),
+    prisma.patient.count({ where: { gender: 'Female' } }),
+    prisma.patient.count({ where: { gender: 'Other' } }),
+  ]);
+
+  // Batch 3: Visit counts (4 queries)
+  const [
+    consultationsToday,
+    upcomingFollowUps,
+    followUpsThisWeek,
+    overdueFollowUps,
+  ] = await Promise.all([
     prisma.visit.count({
       where: { visitDate: { gte: todayStart, lt: todayEnd } },
     }),
@@ -66,18 +82,10 @@ const AnalyticsPage = async () => {
     prisma.visit.count({
       where: { followUpDate: { lt: today } },
     }),
-    prisma.patient.count({
-      where: {
-        visits: {
-          some: {
-            signs: { not: null },
-          },
-        },
-      },
-    }),
-    prisma.patient.count({ where: { gender: 'Male' } }),
-    prisma.patient.count({ where: { gender: 'Female' } }),
-    prisma.patient.count({ where: { gender: 'Other' } }),
+  ]);
+
+  // Batch 4: Appointment counts (3 queries)
+  const [totalAppointments, oldPatientAppointments, newPatientAppointments] = await Promise.all([
     prisma.appointment.count(),
     prisma.appointment.count({ where: { patientId: { not: null } } }),
     prisma.appointment.count({ where: { patientId: null } }),

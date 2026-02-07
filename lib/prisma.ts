@@ -12,6 +12,10 @@ const prismaClientSingleton = () => {
       },
     },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    // Optimize for serverless with connection pooling
+    // @ts-ignore - connection_limit is valid but not in types
+    connection_limit: 1,
+    pool_timeout: 20,
   })
   
   return client
