@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client'
 
 const prismaClientSingleton = () => {
   // Create client with pgbouncer-compatible settings for serverless
+  // Connection pooling parameters should be in DATABASE_URL, not here
   const client = new PrismaClient({
     errorFormat: 'pretty',
     datasources: {
@@ -12,10 +13,6 @@ const prismaClientSingleton = () => {
       },
     },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    // Optimize for serverless with connection pooling
-    // @ts-ignore - connection_limit is valid but not in types
-    connection_limit: 1,
-    pool_timeout: 20,
   })
   
   return client
