@@ -78,7 +78,7 @@ const Navbar = () => {
                 <Stethoscope className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
               </div>
               <span className="text-lg sm:text-2xl md:text-3xl font-extrabold text-brand-teal">
-                Do<span className="text-brand-red">X</span><span className="text-brand-yellow">cia</span>
+                DoXcia
               </span>
             </Link>
             <div className="hidden md:flex items-center space-x-1">
