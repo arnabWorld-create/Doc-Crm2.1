@@ -86,7 +86,11 @@ const AnalyticsPage = async () => {
   const todayEnd = new Date(today);
   todayEnd.setHours(23, 59, 59, 999);
 
-  // SUPER OPTIMIZED: Combine ALL patient queries into ONE with raw SQL
+  // SUPER OPTIMIZED: Combine ALL patient queries + age groups + weekly data into ONE
+  const eightWeeksAgo = new Date(today);
+  eightWeeksAgo.setDate(today.getDate() - (7 * 7));
+  eightWeeksAgo.setHours(0, 0, 0, 0);
+
   const patientStats = await prisma.$queryRaw<Array<{
     total: bigint;
     this_month: bigint;
@@ -96,6 +100,11 @@ const AnalyticsPage = async () => {
     male: bigint;
     female: bigint;
     other: bigint;
+    age_0_18: bigint;
+    age_19_35: bigint;
+    age_36_50: bigint;
+    age_51_65: bigint;
+    age_65_plus: bigint;
   }>>`
     SELECT 
       COUNT(*)::bigint as total,
@@ -105,7 +114,12 @@ const AnalyticsPage = async () => {
       COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM visits WHERE visits."patientId" = patients.id AND signs IS NOT NULL))::bigint as with_records,
       COUNT(*) FILTER (WHERE gender = 'Male')::bigint as male,
       COUNT(*) FILTER (WHERE gender = 'Female')::bigint as female,
-      COUNT(*) FILTER (WHERE gender = 'Other')::bigint as other
+      COUNT(*) FILTER (WHERE gender = 'Other')::bigint as other,
+      COUNT(*) FILTER (WHERE age IS NOT NULL AND age <= 18)::bigint as age_0_18,
+      COUNT(*) FILTER (WHERE age IS NOT NULL AND age > 18 AND age <= 35)::bigint as age_19_35,
+      COUNT(*) FILTER (WHERE age IS NOT NULL AND age > 35 AND age <= 50)::bigint as age_36_50,
+      COUNT(*) FILTER (WHERE age IS NOT NULL AND age > 50 AND age <= 65)::bigint as age_51_65,
+      COUNT(*) FILTER (WHERE age IS NOT NULL AND age > 65)::bigint as age_65_plus
     FROM patients
   `;
 
@@ -118,6 +132,24 @@ const AnalyticsPage = async () => {
   const maleCount = Number(stats.male);
   const femaleCount = Number(stats.female);
   const otherCount = Number(stats.other);
+
+  // Age groups from the same query
+  const ageGroups = {
+    '0-18': Number(stats.age_0_18),
+    '19-35': Number(stats.age_19_35),
+    '36-50': Number(stats.age_36_50),
+    '51-65': Number(stats.age_51_65),
+    '65+': Number(stats.age_65_plus),
+  };
+
+  // Fetch weekly data separately (still need individual dates)
+  const recentPatients = await prisma.patient.findMany({
+    select: { createdAt: true },
+    where: {
+      createdAt: { gte: eightWeeksAgo },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
 
   // SUPER OPTIMIZED: Combine ALL visit queries into ONE
   const visitStats = await prisma.$queryRaw<Array<{
@@ -164,30 +196,6 @@ const AnalyticsPage = async () => {
   // Get cached medical analysis (conditions and medicines) - much faster!
   const { topConditions, topMedicines } = await getCachedMedicalAnalysis();
 
-  // Age groups - fetch only age field (already optimized with single query)
-  const patients = await prisma.patient.findMany({
-    select: { age: true },
-    where: { age: { not: null } },
-  });
-
-  const ageGroups = {
-    '0-18': 0,
-    '19-35': 0,
-    '36-50': 0,
-    '51-65': 0,
-    '65+': 0,
-  };
-
-  patients.forEach((patient) => {
-    if (patient.age) {
-      if (patient.age <= 18) ageGroups['0-18']++;
-      else if (patient.age <= 35) ageGroups['19-35']++;
-      else if (patient.age <= 50) ageGroups['36-50']++;
-      else if (patient.age <= 65) ageGroups['51-65']++;
-      else ageGroups['65+']++;
-    }
-  });
-
   const growthRate = patientsLastMonth > 0 
     ? ((patientsThisMonth - patientsLastMonth) / patientsLastMonth * 100).toFixed(1)
     : '0';
@@ -196,21 +204,7 @@ const AnalyticsPage = async () => {
     ? ((patientsWithCompleteRecords / totalPatients) * 100).toFixed(1)
     : '0';
 
-  // Week on Week New Patient Registrations (last 8 weeks) - OPTIMIZED: Single query
-  const eightWeeksAgo = new Date(today);
-  eightWeeksAgo.setDate(today.getDate() - (7 * 7)); // 7 weeks ago
-  eightWeeksAgo.setHours(0, 0, 0, 0);
-  
-  // Fetch all patients from last 8 weeks in ONE query
-  const recentPatients = await prisma.patient.findMany({
-    select: { createdAt: true },
-    where: {
-      createdAt: { gte: eightWeeksAgo },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-
-  // Group patients by week in JavaScript (much faster than 8 separate queries)
+  // Week on Week New Patient Registrations (last 8 weeks) - Group by week in JavaScript
   const weeksData: Array<{ weekStart: Date; weekEnd: Date; count: number; label: string }> = [];
   for (let i = 7; i >= 0; i--) {
     const weekStart = new Date(today);
