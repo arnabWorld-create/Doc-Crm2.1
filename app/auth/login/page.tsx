@@ -59,8 +59,8 @@ export default function LoginPage() {
               </div>
             </div>
           </div>
-          <h1 className="text-4xl font-extrabold text-brand-teal mb-2">
-            Do<span className="text-brand-red">X</span><span className="text-brand-yellow">cia</span>
+          <h1 className="text-4xl font-extrabold text-gray-800 mb-2">
+            Do<span className="text-brand-red">X</span>cia
           </h1>
           <p className="text-gray-600 text-sm font-medium">Patient Management System</p>
         </div>
