@@ -1,6 +1,13 @@
 /**
  * In-memory rate limiter
- * For production, use Redis-based rate limiter
+ * 
+ * BETA SECURITY DECISION: In-memory rate limiting (resets on deployment)
+ * REASON: Avoid Redis infrastructure complexity during MVP
+ * RISK: Rate limits reset on every Vercel deployment (ineffective against persistent attacks)
+ * IMPACT: Acceptable for beta with manual monitoring, NOT acceptable for production
+ * MIGRATION PATH: Replace with Redis-based rate limiter post-funding
+ * ESTIMATED EFFORT: 1-2 days (add Redis, update all rate limit calls)
+ * TODO POST-FUNDING: Implement Redis-based rate limiter with Upstash
  */
 
 interface RateLimitEntry {

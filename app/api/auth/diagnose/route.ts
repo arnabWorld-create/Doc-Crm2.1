@@ -66,14 +66,11 @@ export async function GET(request: NextRequest) {
         demoUser,
       },
     });
-  } catch (error) {
-    console.error('❌ Diagnostic error:', error);
+  } catch (error: unknown) {
+    console.error('Diagnostic error:', error);
+    const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error,
-      },
+      { success: false, error: sanitizeErrorForClient(error) },
       { status: 500 }
     );
   }

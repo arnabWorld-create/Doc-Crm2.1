@@ -66,13 +66,11 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Simple login error:', error);
+    const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : String(error),
-      },
+      { error: 'Internal server error', message: sanitizeErrorForClient(error) },
       { status: 500 }
     );
   }

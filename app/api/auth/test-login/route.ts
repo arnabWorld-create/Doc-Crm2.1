@@ -46,14 +46,11 @@ export async function POST(request: NextRequest) {
         role: user.role,
       },
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Test login error:', error);
+    const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      },
+      { error: 'Internal server error', message: sanitizeErrorForClient(error) },
       { status: 500 }
     );
   }

@@ -1,6 +1,38 @@
 # DoXcia - Doctor CRM & Landing Page
 
-A comprehensive clinic management system with an integrated landing page for medical practices.
+**Status**: 🟢 Private Beta (Investor-Ready MVP)  
+**Scale**: 0-100 clinics maximum  
+**Purpose**: Prove product-market fit and secure seed funding
+
+---
+
+## ⚠️ READ THIS FIRST
+
+**If you're a founder, investor, or technical advisor**, start here:
+
+1. **[FOUNDER_QUICK_START.md](FOUNDER_QUICK_START.md)** - Your complete playbook
+2. **[INVESTOR_MVP.md](INVESTOR_MVP.md)** - Technical appendix for investors
+3. **[100_CLINIC_OPERATIONS.md](100_CLINIC_OPERATIONS.md)** - Operational limits and monitoring
+4. **[DATA_DISCIPLINE.md](DATA_DISCIPLINE.md)** - Data integrity rules
+5. **[FEATURE_FREEZE.md](FEATURE_FREEZE.md)** - Change control process
+
+**If you're a developer**, read the above documents before making any changes.
+
+---
+
+## What This Is
+
+A comprehensive clinic management system with an integrated landing page for medical practices in India. Built as a private beta MVP to validate product-market fit before scaling.
+
+### Honest Assessment
+- ✅ **Working product**: Real clinics can use it today
+- ✅ **Feature complete**: Covers core clinic workflows
+- ✅ **Documented debt**: All technical decisions documented
+- ⚠️ **Scale limit**: Works for 100 clinics max
+- ⚠️ **Security**: Basic security for beta, not production-grade
+- ⚠️ **Performance**: Already showing issues at small scale
+
+**This is intentionally limited.** See [INVESTOR_MVP.md](INVESTOR_MVP.md) for full context.
 
 ## 🚀 Features
 
@@ -121,13 +153,26 @@ DATABASE_URL="your-production-url" npx prisma db seed
 
 ## 📚 Documentation
 
+### 🎯 Start Here (Mandatory Reading)
+- **[FOUNDER_QUICK_START.md](FOUNDER_QUICK_START.md)** - Complete playbook for founders
+- **[INVESTOR_MVP.md](INVESTOR_MVP.md)** - Technical appendix for investors
+- **[100_CLINIC_OPERATIONS.md](100_CLINIC_OPERATIONS.md)** - What breaks at scale
+- **[DATA_DISCIPLINE.md](DATA_DISCIPLINE.md)** - Data integrity rules
+- **[FEATURE_FREEZE.md](FEATURE_FREEZE.md)** - Change control process
+
+### 📖 Technical Documentation
+- `CTO_ASSESSMENT.md` - Brutal technical assessment (read for context)
 - `DEPLOYMENT.md` - Detailed deployment guide
 - `VERCEL_DEPLOYMENT_QUICK_GUIDE.md` - Quick Vercel setup
 - `VERCEL_FIX_PGBOUNCER.md` - Fix PgBouncer connection issues
 - `VERCEL_ENV_SETUP.md` - Environment variables reference
 - `SUPABASE_POOLER_SETUP.md` - Supabase connection pooling
-- `LANDING_PRODUCTION_PUSH.md` - Landing page deployment
-- `QUICK_START.md` - Quick start guide
+
+### 🔧 Performance & Fixes
+- `ANALYTICS_DIAGNOSIS.md` - Analytics performance issues
+- `ANALYTICS_CONNECTION_POOL_FIX.md` - Connection pool fixes
+- `ANALYTICS_PERFORMANCE_GUIDE.md` - Performance optimization guide
+- `VERCEL_CONNECTION_POOL_FIX.md` - Vercel-specific fixes
 
 ## 🏗️ Project Structure
 

@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
 
 // Routes that don't require authentication
-const publicRoutes = ['/auth/login', '/auth/register', '/'];
+const publicPaths = ['/auth/login', '/auth/register', '/'];
 
-export function middleware(request: NextRequest) {
+// CRM paths that require a valid JWT (server-side check)
+const protectedPathPrefixes = [
+  '/patients',
+  '/appointments',
+  '/calendar',
+  '/analytics',
+  '/payments',
+  '/settings',
+];
+
+function isProtectedPath(pathname: string): boolean {
+  if (publicPaths.includes(pathname)) return false;
+  if (pathname.startsWith('/auth/')) return false; // auth/* is login/register
+  return protectedPathPrefixes.some((prefix) => pathname.startsWith(prefix));
+}
+
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Allow landing page and its assets
@@ -12,12 +29,37 @@ export function middleware(request: NextRequest) {
   }
 
   // Allow public routes
-  if (publicRoutes.includes(pathname)) {
+  if (publicPaths.includes(pathname) || pathname.startsWith('/auth/')) {
     return NextResponse.next();
   }
 
-  // Allow all other routes for now
-  // Auth is handled by the AuthProvider and useAuth hook
+  // Protect CRM paths: require valid JWT in cookie
+  if (isProtectedPath(pathname)) {
+    const token = request.cookies.get('auth-token')?.value;
+    const secret = process.env.JWT_SECRET;
+
+    if (!secret) {
+      return NextResponse.redirect(new URL('/auth/login', request.url));
+    }
+
+    if (!token) {
+      const loginUrl = new URL('/auth/login', request.url);
+      loginUrl.searchParams.set('from', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      await jwtVerify(token, encoder.encode(secret));
+      return NextResponse.next();
+    } catch {
+      // Invalid or expired token: clear cookie and redirect to login
+      const response = NextResponse.redirect(new URL('/auth/login', request.url));
+      response.cookies.delete('auth-token');
+      return response;
+    }
+  }
+
   return NextResponse.next();
 }
 

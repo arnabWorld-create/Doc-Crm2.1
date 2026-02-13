@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Fetch appointments with filters and pagination
 export async function GET(req: NextRequest) {
+  const { error } = await requirePermission(req, 'appointments', 'read');
+  if (error) return error;
+
   try {
     // Check if Appointment model exists
     if (!prisma.appointment) {
@@ -114,6 +118,9 @@ export async function GET(req: NextRequest) {
 
 // POST - Create new appointment
 export async function POST(req: NextRequest) {
+  const { error } = await requirePermission(req, 'appointments', 'write');
+  if (error) return error;
+
   try {
     const body = await req.json();
 
@@ -152,14 +159,11 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(appointment, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Failed to create appointment:', error);
+    const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
-      { 
-        message: 'Failed to create appointment',
-        error: error.message,
-        details: error.toString()
-      },
+      { message: sanitizeErrorForClient(error) },
       { status: 500 }
     );
   }

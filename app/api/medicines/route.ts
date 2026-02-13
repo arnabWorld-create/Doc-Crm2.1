@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Fetch all custom medicines
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { error } = await requirePermission(req, 'settings', 'read');
+  if (error) return error;
+
   try {
     const customMedicines = await prisma.customMedicine.findMany({
       orderBy: [
@@ -25,6 +29,9 @@ export async function GET() {
 
 // POST - Add or update custom medicine
 export async function POST(req: NextRequest) {
+  const { error } = await requirePermission(req, 'settings', 'write');
+  if (error) return error;
+
   try {
     const { name } = await req.json();
 

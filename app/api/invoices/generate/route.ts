@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { extractFeesFromNotes } from '@/lib/fee-utils';
 import { logger } from '@/lib/logger';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,9 @@ export const dynamic = 'force-dynamic';
  * This endpoint creates invoices for visits that have fees but no corresponding invoice
  */
 export async function POST(request: NextRequest) {
+  const { error } = await requirePermission(request, 'invoices', 'write');
+  if (error) return error;
+
   try {
     logger.info('Starting invoice generation from visit fees');
 

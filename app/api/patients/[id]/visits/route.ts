@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { error } = await requirePermission(req, 'visits', 'write');
+  if (error) return error;
+
   try {
     const body = await req.json();
 
@@ -141,13 +145,11 @@ export async function POST(
 
 
     return NextResponse.json(visit, { status: 201 });
-  } catch (error: any) {
-    console.error('❌ Failed to create visit - Full error:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
+  } catch (error: unknown) {
+    console.error('Failed to create visit:', error);
+    const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
-      { message: 'Failed to create visit', error: error.message || String(error) },
+      { message: sanitizeErrorForClient(error) },
       { status: 500 }
     );
   }

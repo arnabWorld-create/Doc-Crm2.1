@@ -310,3 +310,15 @@ model Refund {
   @@index([paymentId])
   @@index([status])
 }
+
+model AnalyticsCache {
+  id            String   @id @default(cuid())
+  cacheKey      String   @unique // e.g., "patient_analytics_all"
+  data          String   @db.Text // JSON string of calculated analytics
+  calculatedAt  DateTime @default(now())
+  expiresAt     DateTime
+  
+  @@map("analytics_cache")
+  @@index([cacheKey])
+  @@index([expiresAt])
+}

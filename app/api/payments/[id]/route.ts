@@ -6,7 +6,7 @@ import { ApiErrors } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import { paymentService } from '@/lib/payment-service';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +24,7 @@ const refundPaymentSchema = z.object({
 // GET - Get payment details
 export const GET = withMiddleware(
   async (request: NextRequest) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'payments', 'read');
     if (error) throw error;
 
     const id = request.nextUrl.pathname.split('/').pop();
@@ -61,7 +61,7 @@ export const GET = withMiddleware(
 // POST - Confirm payment
 export const POST = withMiddleware(
   async (request: NextRequest, data) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'payments', 'write');
     if (error) throw error;
 
     const id = request.nextUrl.pathname.split('/').pop();
@@ -124,7 +124,7 @@ export const POST = withMiddleware(
 // PUT - Refund payment
 export const PUT = withMiddleware(
   async (request: NextRequest, data) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'payments', 'write');
     if (error) throw error;
 
     const id = request.nextUrl.pathname.split('/').pop();

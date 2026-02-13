@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
 // GET - Fetch clinic profile
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { error } = await requirePermission(req, 'settings', 'read');
+  if (error) return error;
+
   try {
     let profile = await prisma.clinicProfile.findFirst();
 
@@ -30,6 +34,9 @@ export async function GET() {
 
 // PUT - Update clinic profile
 export async function PUT(req: NextRequest) {
+  const { error } = await requirePermission(req, 'settings', 'write');
+  if (error) return error;
+
   try {
     const body = await req.json();
 

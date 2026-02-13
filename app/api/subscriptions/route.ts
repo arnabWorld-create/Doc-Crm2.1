@@ -6,7 +6,7 @@ import { ApiErrors } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import { paymentService } from '@/lib/payment-service';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,7 @@ const createSubscriptionSchema = z.object({
 // GET all subscriptions
 export const GET = withMiddleware(
   async (request: NextRequest) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'settings', 'read');
     if (error) throw error;
 
     const { searchParams } = new URL(request.url);
@@ -75,7 +75,7 @@ export const GET = withMiddleware(
 // POST - Create subscription
 export const POST = withMiddleware(
   async (request: NextRequest, data) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'settings', 'write');
     if (error) throw error;
 
     const { patientId, planId, metadata } = data;

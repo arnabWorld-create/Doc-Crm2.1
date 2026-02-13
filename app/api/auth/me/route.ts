@@ -42,13 +42,11 @@ async function handler(request: NextRequest) {
     }
 
     return successResponse(user, 200, request);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error in /api/auth/me:', error);
+    const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : String(error)
-      },
+      { error: 'Internal server error', message: sanitizeErrorForClient(error) },
       { status: 500 }
     );
   }

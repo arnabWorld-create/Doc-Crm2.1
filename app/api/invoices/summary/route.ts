@@ -3,6 +3,7 @@ import { withMiddleware, successResponse } from '@/lib/middleware';
 import { logger } from '@/lib/logger';
 import { extractFeesFromNotes } from '@/lib/fee-utils';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
+import { requirePermission } from '@/lib/rbac';
 
 /**
  * GET /api/invoices/summary
@@ -10,7 +11,10 @@ import { RATE_LIMITS } from '@/lib/rate-limiter';
  * This replaces the N+1 query pattern of fetching patients then individual patient details
  */
 export const GET = withMiddleware(
-  async () => {
+  async (request: NextRequest) => {
+    const { error } = await requirePermission(request, 'invoices', 'read');
+    if (error) throw error;
+
     try {
       const prisma = require('@/lib/prisma').default;
       

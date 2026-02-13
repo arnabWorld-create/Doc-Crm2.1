@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { withMiddleware, successResponse } from '@/lib/middleware';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
 import { extractFeesFromNotes } from '@/lib/fee-utils';
@@ -34,7 +34,7 @@ interface PatientAnalytics {
 export const GET = withMiddleware(
   async (request: NextRequest) => {
     try {
-      const { error, user } = await requireAuth(request);
+      const { error } = await requirePermission(request, 'analytics', 'read');
       if (error) throw error;
 
       const { searchParams } = new URL(request.url);
@@ -45,6 +45,87 @@ export const GET = withMiddleware(
       const minVisits = parseInt(searchParams.get('minVisits') || '1');
       const timeRange = searchParams.get('timeRange') || 'all';
       const skip = (page - 1) * limit;
+
+      // Try to get from cache first (only for 'all' time range with default filters)
+      const useCache = timeRange === 'all' && minVisits === 1;
+      
+      if (useCache) {
+        const cached = await prisma.analyticsCache.findUnique({
+          where: { cacheKey: 'patient_analytics_all' },
+        });
+        
+        if (cached && new Date(cached.expiresAt) > new Date()) {
+          // Cache hit - return cached data with filtering/sorting/pagination
+          const cacheData = JSON.parse(cached.data);
+          let analyticsData = cacheData.data as PatientAnalytics[];
+          
+          // Apply sorting
+          analyticsData.sort((a, b) => {
+            let aValue: any, bValue: any;
+            
+            switch (sortBy) {
+              case 'totalVisits':
+                aValue = a.totalVisits;
+                bValue = b.totalVisits;
+                break;
+              case 'totalFeesGenerated':
+                aValue = a.totalFeesGenerated;
+                bValue = b.totalFeesGenerated;
+                break;
+              case 'name':
+                aValue = a.name.toLowerCase();
+                bValue = b.name.toLowerCase();
+                break;
+              case 'averageFeePerVisit':
+                aValue = a.averageFeePerVisit;
+                bValue = b.averageFeePerVisit;
+                break;
+              default:
+                aValue = a.totalFeesGenerated;
+                bValue = b.totalFeesGenerated;
+            }
+
+            if (sortOrder === 'desc') {
+              return bValue > aValue ? 1 : bValue < aValue ? -1 : 0;
+            } else {
+              return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+            }
+          });
+          
+          // Apply pagination
+          const paginatedData = analyticsData.slice(skip, skip + limit);
+          const total = analyticsData.length;
+          
+          logger.info('Analytics served from cache', {
+            calculatedAt: cached.calculatedAt,
+            age: `${Math.round((Date.now() - new Date(cached.calculatedAt).getTime()) / 1000)}s`,
+            cached: true,
+          });
+          
+          return successResponse(
+            {
+              data: paginatedData,
+              summary: cacheData.summary,
+              pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit),
+              },
+              filters: {
+                timeRange,
+                sortBy,
+                sortOrder,
+                minVisits,
+              },
+              cached: true,
+              calculatedAt: cached.calculatedAt,
+            },
+            200,
+            request
+          );
+        }
+      }
 
       // Calculate date filter based on time range
       let dateFilter: Date | undefined;
@@ -253,12 +334,13 @@ export const GET = withMiddleware(
         },
       };
 
-      logger.info('Fetched patient analytics', {
+      logger.info('Fetched patient analytics (real-time calculation)', {
         totalPatients: total,
         timeRange,
         sortBy,
         sortOrder,
         minVisits,
+        cached: false,
       });
 
       return successResponse(
@@ -277,6 +359,7 @@ export const GET = withMiddleware(
             sortOrder,
             minVisits,
           },
+          cached: false,
         },
         200,
         request

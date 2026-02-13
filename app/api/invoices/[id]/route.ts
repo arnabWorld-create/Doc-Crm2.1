@@ -5,7 +5,7 @@ import { withMiddleware, successResponse } from '@/lib/middleware';
 import { ApiErrors } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +19,7 @@ const updateInvoiceSchema = z.object({
 // GET - Get invoice details
 export const GET = withMiddleware(
   async (request: NextRequest) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'invoices', 'read');
     if (error) throw error;
 
     const id = request.nextUrl.pathname.split('/').pop();
@@ -64,7 +64,7 @@ export const GET = withMiddleware(
 // PUT - Update invoice
 export const PUT = withMiddleware(
   async (request: NextRequest, data) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'invoices', 'write');
     if (error) throw error;
 
     const id = request.nextUrl.pathname.split('/').pop();
@@ -111,7 +111,7 @@ export const PUT = withMiddleware(
 // DELETE - Cancel invoice
 export const DELETE = withMiddleware(
   async (request: NextRequest) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'invoices', 'write');
     if (error) throw error;
 
     const id = request.nextUrl.pathname.split('/').pop();

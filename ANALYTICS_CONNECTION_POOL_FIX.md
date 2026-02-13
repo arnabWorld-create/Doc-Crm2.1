@@ -23,14 +23,12 @@ connection_limit: 1, timeout: 10
 
 **Impact**: Reduces connection pool pressure by 75%
 
-### ✅ 2. Updated Prisma Client Config
-**Changed**: Added connection pool settings to `lib/prisma.ts`
-```typescript
-connection_limit: 1,
-pool_timeout: 20,
-```
+### ✅ 2. Reverted Prisma Client Config
+**Note**: Connection pool settings must be in DATABASE_URL, not in PrismaClient constructor
+- Removed invalid config that was causing build errors
+- Connection pooling is handled via DATABASE_URL parameters
 
-**Impact**: Better handling of limited connections
+**Impact**: Clean build, proper connection pooling via URL params
 
 ### 🔧 3. Update Vercel Environment Variable (YOU MUST DO THIS)
 
@@ -75,9 +73,9 @@ Your **DATABASE_URL in Vercel** is missing connection pooling parameters.
 - Prevents connection pool exhaustion
 
 ### File: `lib/prisma.ts`
-- Added explicit connection pool settings
-- Increased pool timeout from 10s to 20s
-- Better error handling for serverless
+- Kept clean PrismaClient configuration
+- Connection pooling handled via DATABASE_URL parameters
+- No build errors
 
 ## Testing
 

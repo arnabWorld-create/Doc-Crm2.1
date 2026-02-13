@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import prisma from '@/lib/prisma';
-import { requireAuth } from '@/lib/api-auth';
 import { requirePermission } from '@/lib/rbac';
 import { withMiddleware, successResponse } from '@/lib/middleware';
 import { ApiErrors } from '@/lib/api-error';

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { generatePatientId } from '@/lib/patientUtils';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
 import { withMiddleware, successResponse } from '@/lib/middleware';
 import { ApiErrors } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
@@ -64,8 +64,7 @@ const createPatientSchema = z.object({
 // GET all patients with pagination
 export const GET = withMiddleware(
   async (request: NextRequest) => {
-    // Verify authentication
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'patients', 'read');
     if (error) throw error;
 
     const { searchParams } = new URL(request.url);
@@ -139,8 +138,7 @@ export const GET = withMiddleware(
 // POST - Create new patient with first visit
 export const POST = withMiddleware(
   async (request: NextRequest, data) => {
-    // Verify authentication
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'patients', 'write');
     if (error) throw error;
 
     // Generate patient ID
@@ -210,6 +208,18 @@ export const POST = withMiddleware(
       visitCreateData.followUpDate = new Date(visitData.followUpDate);
     }
 
+    // BETA SECURITY DECISION: Storing fees as JSON in notes field
+    // REASON: Avoid schema migration during rapid MVP iteration
+    // RISK: Can't query/filter by fee amount, potential JSON corruption
+    // IMPACT: Analytics limited, manual fee extraction required
+    // MIGRATION PATH: 
+    //   1. Create VisitFee table with foreign key to Visit
+    //   2. Parse all existing Visit.notes for __FEES_JSON__ markers
+    //   3. Extract fee data and insert into VisitFee table
+    //   4. Remove __FEES_JSON__ markers from notes
+    //   5. Update all fee-related queries to use VisitFee table
+    // ESTIMATED EFFORT: 2-3 weeks post-funding
+    // TODO POST-FUNDING: Normalize fees to proper table
     // Store visit fees in notes if provided
     if (visitFees && Array.isArray(visitFees) && visitFees.length > 0) {
       const feesData = {

@@ -31,6 +31,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     { resource: 'analytics', action: 'read' },
     { resource: 'settings', action: 'read' },
     { resource: 'settings', action: 'write' },
+    { resource: 'payments', action: 'read' },
+    { resource: 'payments', action: 'write' },
+    { resource: 'invoices', action: 'read' },
+    { resource: 'invoices', action: 'write' },
   ],
   admin: [
     { resource: '*', action: '*' }, // Full access
@@ -42,6 +46,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     { resource: 'visits', action: 'write' },
     { resource: 'appointments', action: 'read' },
     { resource: 'appointments', action: 'write' },
+    { resource: 'payments', action: 'read' },
+    { resource: 'payments', action: 'write' },
+    { resource: 'invoices', action: 'read' },
+    { resource: 'invoices', action: 'write' },
   ],
 };
 

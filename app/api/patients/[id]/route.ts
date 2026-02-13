@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,8 +9,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // Verify authentication
-  const { error } = await requireAuth(req);
+  const { error } = await requirePermission(req, 'patients', 'read');
   if (error) return error;
 
   try {
@@ -46,6 +45,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { error } = await requirePermission(req, 'patients', 'write');
+  if (error) return error;
+
   try {
     const body = await req.json();
     
@@ -127,6 +129,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const { error } = await requirePermission(req, 'patients', 'delete');
+  if (error) return error;
+
   try {
     await prisma.patient.delete({
       where: { id: params.id },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string; visitId: string } }
 ) {
+  const { error } = await requirePermission(req, 'visits', 'read');
+  if (error) return error;
+
   try {
     const visit = await prisma.visit.findUnique({
       where: {
@@ -41,6 +45,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: { id: string; visitId: string } }
 ) {
+  const { error } = await requirePermission(req, 'visits', 'write');
+  if (error) return error;
+
   try {
     const body = await req.json();
 
@@ -138,6 +145,9 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string; visitId: string } }
 ) {
+  const { error } = await requirePermission(req, 'visits', 'delete');
+  if (error) return error;
+
   try {
     await prisma.visit.delete({
       where: {

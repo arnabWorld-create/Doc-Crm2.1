@@ -5,7 +5,7 @@ import { withMiddleware, successResponse } from '@/lib/middleware';
 import { ApiErrors } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +24,7 @@ const createPlanSchema = z.object({
 // GET all subscription plans
 export const GET = withMiddleware(
   async (request: NextRequest) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'settings', 'read');
     if (error) throw error;
 
     const { searchParams } = new URL(request.url);
@@ -55,7 +55,7 @@ export const GET = withMiddleware(
 // POST - Create subscription plan
 export const POST = withMiddleware(
   async (request: NextRequest, data) => {
-    const { error, user } = await requireAuth(request);
+    const { error } = await requirePermission(request, 'settings', 'write');
     if (error) throw error;
 
     const { name, description, amount, currency, interval, intervalCount, trialDays, features } = data;

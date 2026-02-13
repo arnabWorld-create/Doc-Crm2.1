@@ -1,10 +1,14 @@
 import prisma from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
+import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const { error } = await requirePermission(req, 'patients', 'read');
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
