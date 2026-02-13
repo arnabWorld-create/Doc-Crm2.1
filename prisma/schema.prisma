@@ -1,8 +1,5 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
 }
 
@@ -13,22 +10,22 @@ datasource db {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  password      String   // hashed password
-  name          String
-  role          String   @default("doctor") // doctor, admin, staff
-  isActive      Boolean  @default(true)
-  lastLogin     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String    @id @default(cuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      String    @default("doctor")
+  isActive  Boolean   @default(true)
+  lastLogin DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@map("users")
 }
 
 model Patient {
-  id                String        @id @default(cuid())
-  patientId         String        @unique // FC-001, FC-002, etc.
+  id                String                   @id @default(cuid())
+  patientId         String                   @unique
   name              String
   age               Int?
   gender            String?
@@ -37,288 +34,231 @@ model Patient {
   bloodGroup        String?
   allergies         String?
   chronicConditions String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  
-  visits            Visit[]
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  searchVector      Unsupported("tsvector")? @map("search_vector")
   appointments      Appointment[]
   invoices          Invoice[]
   payments          Payment[]
+  visits            Visit[]
 
+  @@index([searchVector], map: "idx_patients_search_vector", type: Gin)
   @@map("patients")
 }
 
 model Visit {
-  id                String    @id @default(cuid())
-  patientId         String
-  patient           Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  visitDate         DateTime  @default(now())
-  visitType         String    @default("Consultation") // Consultation, Follow-up, Emergency
-  
-  // Vitals
-  temp              Float?
-  spo2              Int?
-  pulse             Int?
-  bloodPressure     String?    // e.g., "120/80"
-  bpSystolic        Int?       // Systolic BP (mmHg)
-  bpDiastolic       Int?       // Diastolic BP (mmHg)
-  rbs               Int?       // Random Blood Sugar (mg/dl)
-  weight            Float?
-  
-  // Medical Details
-  chiefComplaint    String?   // Main reason for visit
-  signs             String?   // Signs & Symptoms
-  investigations    String?
-  diagnosis         String?   // Diagnosis/Condition
-  treatment         String?
-  medicines         String?   // Legacy field - kept for backward compatibility
-  notes             String?   // Additional notes
-  
-  // Files and referrals
-  reports           String?   // JSON string for file uploads
-  referredTo        String?
-  
-  // Follow-up
-  followUpDate      DateTime?
-  followUpNotes     String?
-  
-  // Payment
-  paidBy            String?   // cash, upi, card
-  
-  // Relations
-  medications       Medication[]
-  
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id             String       @id @default(cuid())
+  patientId      String
+  visitDate      DateTime     @default(now())
+  visitType      String       @default("Consultation")
+  temp           Float?
+  spo2           Int?
+  pulse          Int?
+  bloodPressure  String?
+  weight         Float?
+  chiefComplaint String?
+  signs          String?
+  investigations String?
+  diagnosis      String?
+  treatment      String?
+  medicines      String?
+  notes          String?
+  reports        String?
+  referredTo     String?
+  followUpDate   DateTime?
+  followUpNotes  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  bpDiastolic    Int?
+  bpSystolic     Int?
+  rbs            Int?
+  paidBy         String?
+  medications    Medication[]
+  patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@map("visits")
   @@index([patientId])
   @@index([visitDate])
+  @@index([patientId], map: "idx_visits_patient_id")
+  @@index([visitDate], map: "idx_visits_visit_date")
+  @@map("visits")
 }
 
 model CustomMedicine {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  usageCount  Int      @default(1)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String   @unique
+  usageCount Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("custom_medicines")
 }
 
 model Medication {
-  id            String   @id @default(cuid())
-  visitId       String
-  visit         Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
-  
-  // Medicine Details
-  medicine      String   // Medicine name (e.g., "Generic")
-  dose          String?  // e.g., "1 tablet", "5ml"
-  frequency     String?  // e.g., "1-0-1 etc"
-  timing        String?  // e.g., "After meal", "Before meal"
-  duration      String?  // e.g., "7 days", "3 days"
-  startFrom     String?  // e.g., "3 day", start date
-  instructions  String?  // Additional instructions (e.g., "if any")
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  visitId      String
+  medicine     String
+  dose         String?
+  frequency    String?
+  timing       String?
+  duration     String?
+  startFrom    String?
+  instructions String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  visit        Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
 
-  @@map("medications")
   @@index([visitId])
+  @@index([visitId], map: "idx_medications_visit_id")
+  @@map("medications")
 }
 
 model ClinicProfile {
-  id                String   @id @default(cuid())
-  
-  // Clinic Information
-  clinicName        String   @default("DoXcia")
-  address           String?
-  city              String?
-  state             String?
-  pincode           String?
-  phone             String?
-  email             String?
-  website           String?
-  
-  // Clinic Hours
-  workingHours      String?  @default("Mon-Sat: 9:00 AM - 8:00 PM | Sun: 10:00 AM - 2:00 PM")
-  
-  // Doctor Information
-  doctorName        String?
+  id                  String   @id @default(cuid())
+  clinicName          String   @default("DoXcia")
+  address             String?
+  city                String?
+  state               String?
+  pincode             String?
+  phone               String?
+  email               String?
+  website             String?
+  workingHours        String?  @default("Mon-Sat: 9:00 AM - 8:00 PM | Sun: 10:00 AM - 2:00 PM")
+  doctorName          String?
   doctorQualification String?
-  registrationNumber String?
-  specialization    String?
-  
-  // Additional
-  logo              String?  // URL to logo image
-  tagline           String?
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  registrationNumber  String?
+  specialization      String?
+  logo                String?
+  tagline             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   @@map("clinic_profile")
 }
 
 model Appointment {
-  id                String   @id @default(cuid())
-  patientId         String?
-  patient           Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  // For walk-in/new patients (before patient record is created)
-  tempPatientName   String?
+  id                 String   @id @default(cuid())
+  patientId          String?
+  appointmentDate    DateTime
+  appointmentTime    String
+  duration           Int      @default(30)
+  appointmentType    String   @default("Consultation")
+  status             String   @default("Scheduled")
+  reason             String?
+  notes              String?
+  reminderSent       Boolean  @default(false)
+  visitId            String?  @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
   tempPatientContact String?
-  
-  // Appointment Details
-  appointmentDate   DateTime
-  appointmentTime   String   // e.g., "10:00 AM", "2:30 PM"
-  duration          Int      @default(30) // Duration in minutes
-  appointmentType   String   @default("Consultation") // Consultation, Follow-up, Check-up, Emergency
-  
-  // Status
-  status            String   @default("Scheduled") // Scheduled, Confirmed, Completed, Cancelled, No-Show
-  
-  // Additional Info
-  reason            String?  // Reason for appointment
-  notes             String?  // Internal notes
-  reminderSent      Boolean  @default(false)
-  
-  // Linked Visit (if appointment is completed)
-  visitId           String?  @unique
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  tempPatientName    String?
+  patient            Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
-  @@map("appointments")
   @@index([patientId])
   @@index([appointmentDate])
   @@index([status])
+  @@index([appointmentDate], map: "idx_appointments_date")
+  @@index([patientId], map: "idx_appointments_patient_id")
+  @@index([status], map: "idx_appointments_status")
+  @@map("appointments")
 }
 
 model Invoice {
-  id              String   @id @default(cuid())
-  invoiceNumber   String   @unique
-  patientId       String
-  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  visitId         String?
-  
-  // Invoice details
-  amount          Float
-  currency        String   @default("INR")
-  status          String   @default("pending") // draft, sent, paid, overdue, canceled
-  
-  // Items
-  items           InvoiceItem[]
-  
-  // Dates
-  issuedDate      DateTime @default(now())
-  dueDate         DateTime
-  paidDate        DateTime?
-  
-  // Additional info
-  notes           String?
-  metadata        String?  // JSON string
-  
-  // Payments
-  payments        Payment[]
-  
-  // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  patientId     String
+  visitId       String?
+  amount        Float
+  currency      String        @default("INR")
+  status        String        @default("pending")
+  issuedDate    DateTime      @default(now())
+  dueDate       DateTime
+  paidDate      DateTime?
+  notes         String?
+  metadata      String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         InvoiceItem[]
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  payments      Payment[]
 
-  @@map("invoices")
   @@index([patientId])
   @@index([status])
   @@index([dueDate])
+  @@index([status], map: "idx_invoice_status")
+  @@index([patientId], map: "idx_invoices_patient_id")
+  @@index([status], map: "idx_invoices_status")
+  @@map("invoices")
 }
 
 model InvoiceItem {
   id          String   @id @default(cuid())
   invoiceId   String
-  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  
-  // Item details
   description String
   quantity    Int
   unitPrice   Float
   discount    Int      @default(0)
   total       Float
-  
-  // Timestamps
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
-  @@map("invoice_items")
   @@index([invoiceId])
+  @@index([invoiceId], map: "idx_invoice_items_invoice_id")
+  @@map("invoice_items")
 }
 
 model Payment {
-  id            String   @id @default(cuid())
-  patientId     String
-  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  // Payment details
-  amount        Float
-  currency      String   @default("INR")
-  status        String   @default("pending") // pending, processing, succeeded, failed, refunded
-  paymentMethod String?  // card, upi, wallet, bank_transfer
-  
-  // Provider details
-  provider      String   @default("stripe") // stripe, razorpay, paypal
-  providerPaymentId String? @unique
-  
-  // Invoice reference
-  invoiceId     String?
-  invoice       Invoice? @relation(fields: [invoiceId], references: [id])
-  
-  // Metadata
-  description   String?
-  metadata      String?  // JSON string
-  
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  // Refund
-  refunds       Refund[]
+  id                String   @id @default(cuid())
+  patientId         String
+  amount            Float
+  currency          String   @default("INR")
+  status            String   @default("pending")
+  paymentMethod     String?
+  provider          String   @default("stripe")
+  providerPaymentId String?  @unique
+  invoiceId         String?
+  description       String?
+  metadata          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  invoice           Invoice? @relation(fields: [invoiceId], references: [id])
+  patient           Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  refunds           Refund[]
 
-  @@map("payments")
   @@index([patientId])
   @@index([status])
   @@index([createdAt])
+  @@index([createdAt], map: "idx_payments_created_at")
+  @@index([patientId], map: "idx_payments_patient_id")
+  @@index([status], map: "idx_payments_status")
+  @@map("payments")
 }
 
 model Refund {
-  id            String   @id @default(cuid())
-  paymentId     String
-  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  
-  // Refund details
-  amount        Float
-  reason        String?
-  status        String   @default("pending") // pending, succeeded, failed
-  
-  // Provider details
-  providerRefundId String? @unique
-  
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String   @id @default(cuid())
+  paymentId        String
+  amount           Float
+  reason           String?
+  status           String   @default("pending")
+  providerRefundId String?  @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  payment          Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
-  @@map("refunds")
   @@index([paymentId])
   @@index([status])
+  @@index([paymentId], map: "idx_refunds_payment_id")
+  @@map("refunds")
 }
 
 model AnalyticsCache {
-  id            String   @id @default(cuid())
-  cacheKey      String   @unique // e.g., "patient_analytics_all"
-  data          String   @db.Text // JSON string of calculated analytics
-  calculatedAt  DateTime @default(now())
-  expiresAt     DateTime
-  
-  @@map("analytics_cache")
+  id           String   @id @default(cuid())
+  cacheKey     String   @unique
+  data         String
+  calculatedAt DateTime @default(now())
+  expiresAt    DateTime
+
   @@index([cacheKey])
   @@index([expiresAt])
+  @@map("analytics_cache")
 }
