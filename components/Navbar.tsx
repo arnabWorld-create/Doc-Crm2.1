@@ -159,6 +159,26 @@ const Navbar = () => {
                       <CreditCard className="h-4 w-4" />
                       <span>Fee Management</span>
                     </Link>
+                    <Link
+                      href="/settings/import"
+                      onClick={() => setShowDropdown(false)}
+                      className="w-full flex items-center space-x-2 px-4 py-2.5 text-brand-teal hover:bg-brand-teal/10 transition font-medium text-sm"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span>Import Data</span>
+                    </Link>
+                    <Link
+                      href="/settings/export"
+                      onClick={() => setShowDropdown(false)}
+                      className="w-full flex items-center space-x-2 px-4 py-2.5 text-brand-teal hover:bg-brand-teal/10 transition font-medium text-sm"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 11l3 3m0 0l3-3m-3 3V3" />
+                      </svg>
+                      <span>Export Data</span>
+                    </Link>
                   </div>
                   <div className="border-t-2 border-gray-100">
                     <button

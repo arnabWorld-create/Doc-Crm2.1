@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
     logger.info('Cron job completed successfully', result);
     
     return NextResponse.json({ 
-      success: true,
       ...result,
       timestamp: new Date().toISOString(),
     });
