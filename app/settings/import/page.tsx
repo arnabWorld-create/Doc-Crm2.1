@@ -5,6 +5,7 @@ import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowRight, ArrowLef
 import { notificationManager } from '@/lib/notifications';
 
 type Step = 'upload' | 'mapping' | 'validation' | 'importing' | 'complete';
+type DuplicateStrategy = 'skip' | 'update' | 'create';
 
 export default function ImportPage() {
   const [step, setStep] = useState<Step>('upload');
@@ -15,6 +16,7 @@ export default function ImportPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('skip');
   
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -107,6 +109,7 @@ export default function ImportPage() {
         body: JSON.stringify({
           data: parsedData.fullData || parsedData.preview,
           mapping,
+          duplicateStrategy, // Include duplicate strategy
         }),
       });
       
@@ -434,6 +437,58 @@ export default function ImportPage() {
             </div>
           )}
           
+          {/* Duplicate Handling Strategy */}
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+            <h3 className="font-semibold text-blue-900 mb-3">How to handle duplicates?</h3>
+            <p className="text-sm text-blue-700 mb-3">
+              If a patient with the same contact number or name+age already exists:
+            </p>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="duplicateStrategy"
+                  value="skip"
+                  checked={duplicateStrategy === 'skip'}
+                  onChange={(e) => setDuplicateStrategy(e.target.value as DuplicateStrategy)}
+                  className="w-4 h-4 text-brand-teal"
+                />
+                <div>
+                  <span className="font-medium text-blue-900">Skip duplicate</span>
+                  <p className="text-xs text-blue-600">Don't import if patient already exists (recommended)</p>
+                </div>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="duplicateStrategy"
+                  value="update"
+                  checked={duplicateStrategy === 'update'}
+                  onChange={(e) => setDuplicateStrategy(e.target.value as DuplicateStrategy)}
+                  className="w-4 h-4 text-brand-teal"
+                />
+                <div>
+                  <span className="font-medium text-blue-900">Update existing</span>
+                  <p className="text-xs text-blue-600">Update patient info if already exists</p>
+                </div>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="duplicateStrategy"
+                  value="create"
+                  checked={duplicateStrategy === 'create'}
+                  onChange={(e) => setDuplicateStrategy(e.target.value as DuplicateStrategy)}
+                  className="w-4 h-4 text-brand-teal"
+                />
+                <div>
+                  <span className="font-medium text-blue-900">Create anyway</span>
+                  <p className="text-xs text-blue-600">Create new patient even if duplicate (not recommended)</p>
+                </div>
+              </label>
+            </div>
+          </div>
+          
           <div className="flex justify-between mt-6">
             <button
               onClick={() => setStep('mapping')}
@@ -498,12 +553,24 @@ export default function ImportPage() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-blue-700">Patients Created:</p>
-                  <p className="text-2xl font-bold text-blue-900">{result.patientsCreated || result.success}</p>
+                  <p className="text-2xl font-bold text-blue-900">{result.patientsCreated || 0}</p>
                 </div>
                 <div>
                   <p className="text-blue-700">Visits Created:</p>
                   <p className="text-2xl font-bold text-blue-900">{result.visitsCreated || 0}</p>
                 </div>
+                {result.duplicatesSkipped > 0 && (
+                  <div>
+                    <p className="text-blue-700">Duplicates Skipped:</p>
+                    <p className="text-2xl font-bold text-yellow-600">{result.duplicatesSkipped}</p>
+                  </div>
+                )}
+                {result.duplicatesUpdated > 0 && (
+                  <div>
+                    <p className="text-blue-700">Duplicates Updated:</p>
+                    <p className="text-2xl font-bold text-green-600">{result.duplicatesUpdated}</p>
+                  </div>
+                )}
               </div>
             </div>
             

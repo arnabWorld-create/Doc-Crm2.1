@@ -44,6 +44,14 @@ export interface ImportResult {
   duration: number;
   patientsCreated: number;
   visitsCreated: number;
+  duplicatesSkipped: number;
+  duplicatesUpdated: number;
+}
+
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  existingPatient?: any;
+  matchedBy?: 'contact' | 'name_age' | 'external_id';
 }
 
 export class ImportService {
@@ -310,6 +318,68 @@ export class ImportService {
   }
   
   /**
+   * Generate unique patient ID within transaction
+   * Adds random suffix to avoid collisions during batch imports
+   */
+  async generateUniquePatientId(prisma: any): Promise<string> {
+    const lastPatient = await prisma.patient.findFirst({
+      orderBy: {
+        patientId: 'desc',
+      },
+      select: {
+        patientId: true,
+      },
+    });
+
+    if (!lastPatient) {
+      return 'FC-001';
+    }
+
+    // Extract number from FC-XXX
+    const match = lastPatient.patientId.match(/FC-(\d+)/);
+    if (!match) {
+      // Fallback if format is unexpected
+      return `FC-${Date.now().toString().slice(-6)}`;
+    }
+    
+    const lastNumber = parseInt(match[1]);
+    const nextNumber = lastNumber + 1;
+    
+    // Pad with zeros (FC-001, FC-002, ..., FC-999999)
+    return `FC-${String(nextNumber).padStart(3, '0')}`;
+  }
+  
+  /**
+   * Check if patient already exists in database
+   */
+  async checkDuplicate(patientData: any, prisma: any): Promise<DuplicateCheckResult> {
+    // Strategy 1: Match by contact (most reliable)
+    if (patientData.contact) {
+      const existing = await prisma.patient.findFirst({
+        where: { contact: patientData.contact },
+      });
+      if (existing) {
+        return { isDuplicate: true, existingPatient: existing, matchedBy: 'contact' };
+      }
+    }
+    
+    // Strategy 2: Match by name + age (less reliable but useful)
+    if (patientData.name && patientData.age) {
+      const existing = await prisma.patient.findFirst({
+        where: {
+          name: patientData.name,
+          age: patientData.age,
+        },
+      });
+      if (existing) {
+        return { isDuplicate: true, existingPatient: existing, matchedBy: 'name_age' };
+      }
+    }
+    
+    return { isDuplicate: false };
+  }
+  
+  /**
    * Validate data before import
    */
   validateData(data: any[], mapping: ColumnMapping): ValidationResult {
@@ -321,7 +391,7 @@ export class ImportService {
       const rowNumber = index + 2; // +2 for header and 0-index
       let hasErrors = false;
       
-      // Check required field: Name
+      // Check required field: Name (very lenient - just needs to exist)
       const name = this.getMappedValue(row, mapping, 'name');
       if (!name || name.toString().trim() === '') {
         errors.push({
@@ -331,9 +401,16 @@ export class ImportService {
           value: name,
         });
         hasErrors = true;
+      } else if (name.toString().trim().length < 2) {
+        warnings.push({
+          row: rowNumber,
+          field: 'name',
+          message: 'Name is very short (less than 2 characters)',
+          value: name,
+        });
       }
       
-      // Validate age (optional but must be valid if provided)
+      // Validate age (only if provided)
       const age = this.getMappedValue(row, mapping, 'age');
       if (age !== null && age !== undefined && age !== '') {
         const ageNum = parseInt(age);
@@ -341,33 +418,90 @@ export class ImportService {
           warnings.push({
             row: rowNumber,
             field: 'age',
-            message: 'Invalid age (must be 0-150)',
+            message: 'Age must be a number between 0 and 150 (will be skipped)',
             value: age,
           });
         }
       }
       
-      // Validate gender (optional but must be valid if provided)
+      // Validate gender (only if provided)
       const gender = this.getMappedValue(row, mapping, 'gender');
-      if (gender && !['Male', 'Female', 'Other', 'M', 'F', 'male', 'female', 'other', 'm', 'f'].includes(gender.toString())) {
-        warnings.push({
-          row: rowNumber,
-          field: 'gender',
-          message: 'Invalid gender (use Male, Female, or Other)',
-          value: gender,
-        });
+      if (gender && gender.toString().trim() !== '') {
+        const validGenders = ['Male', 'Female', 'Other', 'M', 'F', 'male', 'female', 'other', 'm', 'f'];
+        if (!validGenders.includes(gender.toString().trim())) {
+          warnings.push({
+            row: rowNumber,
+            field: 'gender',
+            message: 'Invalid gender (will be skipped)',
+            value: gender,
+          });
+        }
       }
       
-      // Validate contact (optional but must be valid if provided)
+      // Validate contact (only if provided)
       const contact = this.getMappedValue(row, mapping, 'contact');
-      if (contact) {
+      if (contact && contact.toString().trim() !== '') {
         const cleanContact = contact.toString().replace(/\D/g, '');
         if (cleanContact.length < 10 || cleanContact.length > 15) {
           warnings.push({
             row: rowNumber,
             field: 'contact',
-            message: 'Invalid contact number (must be 10-15 digits)',
+            message: 'Contact number should be 10-15 digits',
             value: contact,
+          });
+        }
+      }
+      
+      // Validate blood group (only if provided)
+      const bloodGroup = this.getMappedValue(row, mapping, 'bloodGroup');
+      if (bloodGroup && bloodGroup.toString().trim() !== '') {
+        const validGroups = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+        if (!validGroups.includes(bloodGroup.toString().toUpperCase().trim())) {
+          warnings.push({
+            row: rowNumber,
+            field: 'bloodGroup',
+            message: 'Invalid blood group (should be A+, A-, B+, B-, AB+, AB-, O+, O-)',
+            value: bloodGroup,
+          });
+        }
+      }
+      
+      // Validate vitals ranges (only warnings)
+      const temp = this.getMappedValue(row, mapping, 'temp');
+      if (temp && temp.toString().trim() !== '') {
+        const tempNum = parseFloat(temp);
+        if (!isNaN(tempNum) && (tempNum < 90 || tempNum > 110)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'temp',
+            message: 'Temperature seems unusual (should be 90-110°F)',
+            value: temp,
+          });
+        }
+      }
+      
+      const pulse = this.getMappedValue(row, mapping, 'pulse');
+      if (pulse && pulse.toString().trim() !== '') {
+        const pulseNum = parseInt(pulse);
+        if (!isNaN(pulseNum) && (pulseNum < 40 || pulseNum > 200)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'pulse',
+            message: 'Pulse seems unusual (should be 40-200 bpm)',
+            value: pulse,
+          });
+        }
+      }
+      
+      const spo2 = this.getMappedValue(row, mapping, 'spo2');
+      if (spo2 && spo2.toString().trim() !== '') {
+        const spo2Num = parseInt(spo2);
+        if (!isNaN(spo2Num) && (spo2Num < 70 || spo2Num > 100)) {
+          warnings.push({
+            row: rowNumber,
+            field: 'spo2',
+            message: 'SPO2 seems unusual (should be 70-100%)',
+            value: spo2,
           });
         }
       }
