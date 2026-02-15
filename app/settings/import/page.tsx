@@ -411,26 +411,54 @@ export default function ImportPage() {
       
       {/* Step 5: Complete */}
       {step === 'complete' && result && (
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-          <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
-          <h2 className="text-2xl font-bold mb-4">Import Complete!</h2>
-          
-          <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mb-6">
-            <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
-              <p className="text-3xl font-bold text-green-600">{result.success}</p>
-              <p className="text-sm text-gray-600">Imported Successfully</p>
-            </div>
-            {result.failed > 0 && (
-              <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200">
-                <p className="text-3xl font-bold text-red-600">{result.failed}</p>
-                <p className="text-sm text-gray-600">Failed</p>
+        <div className="bg-white p-8 rounded-xl shadow-lg">
+          <div className="text-center">
+            <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
+            <h2 className="text-2xl font-bold mb-4">Import Complete!</h2>
+            
+            <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mb-6">
+              <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
+                <p className="text-3xl font-bold text-green-600">{result.success}</p>
+                <p className="text-sm text-gray-600">Imported Successfully</p>
               </div>
-            )}
+              {result.failed > 0 && (
+                <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200">
+                  <p className="text-3xl font-bold text-red-600">{result.failed}</p>
+                  <p className="text-sm text-gray-600">Failed</p>
+                </div>
+              )}
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Completed in {result.duration} second{result.duration > 1 ? 's' : ''}
+            </p>
           </div>
           
-          <p className="text-gray-600 mb-6">
-            Completed in {result.duration} second{result.duration > 1 ? 's' : ''}
-          </p>
+          {/* Error Details */}
+          {result.failed > 0 && result.errors && result.errors.length > 0 && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-6 text-left">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <h3 className="font-semibold text-red-900">
+                  Import Errors ({result.errors.length} shown)
+                </h3>
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                <ul className="text-sm text-red-700 space-y-2">
+                  {result.errors.map((err: any, i: number) => (
+                    <li key={i} className="border-b border-red-200 pb-2 last:border-0">
+                      <span className="font-medium">Row {err.row}:</span> {err.error}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {result.failed > result.errors.length && (
+                <p className="text-xs text-red-600 mt-2">
+                  ... and {result.failed - result.errors.length} more errors
+                </p>
+              )}
+            </div>
+          )}
           
           <div className="flex gap-4 justify-center">
             <button
