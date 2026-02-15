@@ -42,6 +42,8 @@ export interface ImportResult {
   failed: number;
   errors: Array<{ row: number; error: string }>;
   duration: number;
+  patientsCreated: number;
+  visitsCreated: number;
 }
 
 export class ImportService {
@@ -210,6 +212,7 @@ export class ImportService {
     
     // Define patterns for each field
     const patterns: Record<string, RegExp> = {
+      // Patient fields
       name: /^(name|patient.*name|full.*name|patient)$/i,
       age: /^(age|patient.*age|years)$/i,
       gender: /^(gender|sex)$/i,
@@ -218,6 +221,27 @@ export class ImportService {
       address: /^(address|location|city|residence)$/i,
       allergies: /^(allerg|allergies)$/i,
       chronicConditions: /^(chronic|medical.*history|conditions|diseases)$/i,
+      
+      // Visit fields
+      visitDate: /^(visit.*date|date.*visit|consultation.*date|date)$/i,
+      chiefComplaint: /^(chief.*complaint|complaint|presenting.*complaint|symptoms)$/i,
+      diagnosis: /^(diagnosis|diagnosed|condition)$/i,
+      treatment: /^(treatment|plan|management)$/i,
+      medicines: /^(medicine|medication|drugs|prescription|rx)$/i,
+      signs: /^(signs|examination|physical.*exam|findings)$/i,
+      investigations: /^(investigation|tests|lab.*tests|reports)$/i,
+      notes: /^(notes|remarks|comments|observations)$/i,
+      followUpDate: /^(follow.*up|followup|next.*visit|review.*date)$/i,
+      
+      // Vitals
+      bpSystolic: /^(bp.*systolic|systolic|sbp)$/i,
+      bpDiastolic: /^(bp.*diastolic|diastolic|dbp)$/i,
+      bloodPressure: /^(blood.*pressure|bp)$/i,
+      temp: /^(temp|temperature|fever)$/i,
+      pulse: /^(pulse|heart.*rate|hr)$/i,
+      spo2: /^(spo2|oxygen|o2.*sat)$/i,
+      weight: /^(weight|wt)$/i,
+      rbs: /^(rbs|blood.*sugar|glucose|sugar)$/i,
     };
     
     // Try to match each column
@@ -314,10 +338,10 @@ export class ImportService {
   }
   
   /**
-   * Map row data to patient object
+   * Map row data to patient and visit objects
    */
-  mapRowToPatient(row: any, mapping: ColumnMapping): any {
-    return {
+  mapRowToPatientAndVisit(row: any, mapping: ColumnMapping): { patient: any; visit: any | null } {
+    const patient = {
       patientId: generatePatientId(),
       name: this.getMappedValue(row, mapping, 'name')?.toString().trim() || '',
       age: this.parseNumber(this.getMappedValue(row, mapping, 'age')),
@@ -328,6 +352,46 @@ export class ImportService {
       allergies: this.getMappedValue(row, mapping, 'allergies')?.toString().trim() || null,
       chronicConditions: this.getMappedValue(row, mapping, 'chronicConditions')?.toString().trim() || null,
     };
+    
+    // Check if row has visit data
+    const hasVisitData = 
+      this.getMappedValue(row, mapping, 'visitDate') ||
+      this.getMappedValue(row, mapping, 'chiefComplaint') ||
+      this.getMappedValue(row, mapping, 'diagnosis') ||
+      this.getMappedValue(row, mapping, 'treatment') ||
+      this.getMappedValue(row, mapping, 'medicines');
+    
+    let visit = null;
+    if (hasVisitData) {
+      visit = {
+        visitDate: this.parseDate(this.getMappedValue(row, mapping, 'visitDate')) || new Date(),
+        chiefComplaint: this.getMappedValue(row, mapping, 'chiefComplaint')?.toString().trim() || null,
+        diagnosis: this.getMappedValue(row, mapping, 'diagnosis')?.toString().trim() || null,
+        treatment: this.getMappedValue(row, mapping, 'treatment')?.toString().trim() || null,
+        medicines: this.getMappedValue(row, mapping, 'medicines')?.toString().trim() || null,
+        signs: this.getMappedValue(row, mapping, 'signs')?.toString().trim() || null,
+        investigations: this.getMappedValue(row, mapping, 'investigations')?.toString().trim() || null,
+        notes: this.getMappedValue(row, mapping, 'notes')?.toString().trim() || null,
+        followUpDate: this.parseDate(this.getMappedValue(row, mapping, 'followUpDate')),
+        bpSystolic: this.parseNumber(this.getMappedValue(row, mapping, 'bpSystolic')),
+        bpDiastolic: this.parseNumber(this.getMappedValue(row, mapping, 'bpDiastolic')),
+        bloodPressure: this.getMappedValue(row, mapping, 'bloodPressure')?.toString().trim() || null,
+        temp: this.parseFloat(this.getMappedValue(row, mapping, 'temp')),
+        pulse: this.parseNumber(this.getMappedValue(row, mapping, 'pulse')),
+        spo2: this.parseNumber(this.getMappedValue(row, mapping, 'spo2')),
+        weight: this.parseFloat(this.getMappedValue(row, mapping, 'weight')),
+        rbs: this.parseNumber(this.getMappedValue(row, mapping, 'rbs')),
+      };
+    }
+    
+    return { patient, visit };
+  }
+  
+  /**
+   * Map row data to patient object (legacy - for backward compatibility)
+   */
+  mapRowToPatient(row: any, mapping: ColumnMapping): any {
+    return this.mapRowToPatientAndVisit(row, mapping).patient;
   }
   
   // Helper methods
@@ -341,6 +405,22 @@ export class ImportService {
     if (value === null || value === undefined || value === '') return null;
     const num = parseInt(value.toString());
     return isNaN(num) ? null : num;
+  }
+  
+  private parseFloat(value: any): number | null {
+    if (value === null || value === undefined || value === '') return null;
+    const num = parseFloat(value.toString());
+    return isNaN(num) ? null : num;
+  }
+  
+  private parseDate(value: any): Date | null {
+    if (!value) return null;
+    try {
+      const date = new Date(value);
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
   }
   
   private normalizeGender(value: any): string | null {

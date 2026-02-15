@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
         
         let successCount = 0;
         let failedCount = 0;
+        let patientsCreated = 0;
+        let visitsCreated = 0;
         const errors: Array<{ row: number; error: string }> = [];
         
         const batchSize = 100;
@@ -46,8 +48,8 @@ export async function POST(request: NextRequest) {
               const rowIndex = data.indexOf(row);
               
               try {
-                // Map row to patient data
-                const patientData = importService.mapRowToPatient(row, mapping);
+                // Map row to patient and visit data
+                const { patient: patientData, visit: visitData } = importService.mapRowToPatientAndVisit(row, mapping);
                 
                 // Skip if name is empty
                 if (!patientData.name) {
@@ -59,10 +61,23 @@ export async function POST(request: NextRequest) {
                   continue;
                 }
                 
-                // Create patient
-                await prisma.patient.create({
+                // Create patient with visit if present
+                const patient = await prisma.patient.create({
                   data: patientData,
                 });
+                
+                patientsCreated++;
+                
+                // Create visit if visit data exists
+                if (visitData) {
+                  await prisma.visit.create({
+                    data: {
+                      ...visitData,
+                      patientId: patient.id,
+                    },
+                  });
+                  visitsCreated++;
+                }
                 
                 successCount++;
               } catch (err) {
@@ -92,6 +107,8 @@ export async function POST(request: NextRequest) {
             failed: failedCount,
             errors: errors.slice(0, 100), // Limit to first 100 errors
             duration,
+            patientsCreated,
+            visitsCreated,
           };
           
           const finalMessage = `data: ${JSON.stringify({ result })}\n\n`;

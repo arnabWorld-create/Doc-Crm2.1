@@ -224,8 +224,10 @@ export default function ImportPage() {
               <ul className="text-sm text-gray-600 space-y-1">
                 <li>✅ Must have a header row with column names</li>
                 <li>✅ At minimum, include patient names</li>
-                <li>✅ Common columns: Name, Age, Gender, Contact, Blood Group</li>
-                <li>✅ Maximum 5000 patients per file</li>
+                <li>✅ Patient columns: Name, Age, Gender, Contact, Blood Group</li>
+                <li>✅ Visit columns: Visit Date, Diagnosis, Treatment, Medicines</li>
+                <li>✅ Vitals: BP, Temperature, Pulse, SPO2, Weight, RBS</li>
+                <li>✅ Maximum 5000 records per file</li>
               </ul>
             </div>
           </div>
@@ -253,14 +255,37 @@ export default function ImportPage() {
                   className="flex-1 rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none"
                 >
                   <option value="">Skip this column</option>
-                  <option value="name">Name *</option>
-                  <option value="age">Age</option>
-                  <option value="gender">Gender</option>
-                  <option value="contact">Contact</option>
-                  <option value="bloodGroup">Blood Group</option>
-                  <option value="address">Address</option>
-                  <option value="allergies">Allergies</option>
-                  <option value="chronicConditions">Chronic Conditions</option>
+                  <optgroup label="Patient Information">
+                    <option value="name">Name *</option>
+                    <option value="age">Age</option>
+                    <option value="gender">Gender</option>
+                    <option value="contact">Contact</option>
+                    <option value="bloodGroup">Blood Group</option>
+                    <option value="address">Address</option>
+                    <option value="allergies">Allergies</option>
+                    <option value="chronicConditions">Chronic Conditions</option>
+                  </optgroup>
+                  <optgroup label="Visit/Consultation Details">
+                    <option value="visitDate">Visit Date</option>
+                    <option value="chiefComplaint">Chief Complaint</option>
+                    <option value="diagnosis">Diagnosis</option>
+                    <option value="treatment">Treatment</option>
+                    <option value="medicines">Medicines</option>
+                    <option value="signs">Signs/Examination</option>
+                    <option value="investigations">Investigations/Tests</option>
+                    <option value="notes">Notes</option>
+                    <option value="followUpDate">Follow-up Date</option>
+                  </optgroup>
+                  <optgroup label="Vitals">
+                    <option value="bpSystolic">BP Systolic</option>
+                    <option value="bpDiastolic">BP Diastolic</option>
+                    <option value="bloodPressure">Blood Pressure</option>
+                    <option value="temp">Temperature</option>
+                    <option value="pulse">Pulse</option>
+                    <option value="spo2">SPO2</option>
+                    <option value="weight">Weight</option>
+                    <option value="rbs">RBS/Blood Sugar</option>
+                  </optgroup>
                 </select>
               </div>
             ))}
@@ -416,10 +441,10 @@ export default function ImportPage() {
             <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
             <h2 className="text-2xl font-bold mb-4">Import Complete!</h2>
             
-            <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mb-6">
+            <div className="grid grid-cols-2 gap-4 max-w-md mx-auto mb-4">
               <div className="bg-green-50 p-4 rounded-lg border-2 border-green-200">
                 <p className="text-3xl font-bold text-green-600">{result.success}</p>
-                <p className="text-sm text-gray-600">Imported Successfully</p>
+                <p className="text-sm text-gray-600">Records Imported</p>
               </div>
               {result.failed > 0 && (
                 <div className="bg-red-50 p-4 rounded-lg border-2 border-red-200">
@@ -427,6 +452,21 @@ export default function ImportPage() {
                   <p className="text-sm text-gray-600">Failed</p>
                 </div>
               )}
+            </div>
+            
+            {/* Import Statistics */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-blue-900 mb-2">Import Summary</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-blue-700">Patients Created:</p>
+                  <p className="text-2xl font-bold text-blue-900">{result.patientsCreated || result.success}</p>
+                </div>
+                <div>
+                  <p className="text-blue-700">Visits Created:</p>
+                  <p className="text-2xl font-bold text-blue-900">{result.visitsCreated || 0}</p>
+                </div>
+              </div>
             </div>
             
             <p className="text-gray-600 mb-6">
