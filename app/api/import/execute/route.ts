@@ -61,6 +61,17 @@ export async function POST(request: NextRequest) {
                   continue;
                 }
                 
+                // Log what we're about to create (for debugging)
+                console.log(`Creating patient: ${patientData.name}, has visit data: ${!!visitData}`);
+                if (visitData) {
+                  console.log(`Visit data:`, {
+                    hasComplaint: !!visitData.chiefComplaint,
+                    hasDiagnosis: !!visitData.diagnosis,
+                    hasTreatment: !!visitData.treatment,
+                    hasMedicines: !!visitData.medicines,
+                  });
+                }
+                
                 // Create patient with visit if present
                 const patient = await prisma.patient.create({
                   data: patientData,

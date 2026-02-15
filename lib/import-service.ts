@@ -66,36 +66,82 @@ export class ImportService {
   }
   
   /**
-   * Parse Excel file (.xlsx, .xls)
+   * Parse Excel file (.xlsx, .xls) - supports multiple sheets
    */
   private parseExcel(buffer: ArrayBuffer): ParsedData {
     try {
       const workbook = XLSX.read(buffer, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
       
-      if (!sheetName) {
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
         throw new Error('Excel file is empty or has no sheets');
       }
       
-      const worksheet = workbook.Sheets[sheetName];
+      // Check if we have multiple sheets (Patients + Visits pattern)
+      const hasMultipleSheets = workbook.SheetNames.length > 1;
+      const patientsSheetName = workbook.SheetNames.find(name => 
+        /patient/i.test(name)
+      ) || workbook.SheetNames[0];
       
-      // Convert to JSON with header row
-      const data = XLSX.utils.sheet_to_json(worksheet, { 
-        raw: false, // Convert dates to strings
-        defval: null, // Use null for empty cells
+      const visitsSheetName = workbook.SheetNames.find(name => 
+        /visit|consultation/i.test(name)
+      );
+      
+      // Parse patients sheet
+      const patientsSheet = workbook.Sheets[patientsSheetName];
+      const patientsData = XLSX.utils.sheet_to_json(patientsSheet, { 
+        raw: false,
+        defval: null,
       });
       
-      if (!data || data.length === 0) {
-        throw new Error('Excel sheet is empty');
+      if (!patientsData || patientsData.length === 0) {
+        throw new Error('Patients sheet is empty');
       }
       
-      // Get column names from first row
-      const columns = Object.keys(data[0] || {});
+      // Parse visits sheet if exists
+      let visitsData: any[] = [];
+      if (visitsSheetName) {
+        const visitsSheet = workbook.Sheets[visitsSheetName];
+        visitsData = XLSX.utils.sheet_to_json(visitsSheet, { 
+          raw: false,
+          defval: null,
+        });
+      }
+      
+      // Combine columns from both sheets
+      const patientColumns = Object.keys(patientsData[0] || {});
+      const visitColumns = visitsData.length > 0 ? Object.keys(visitsData[0] || {}) : [];
+      const allColumns = [...new Set([...patientColumns, ...visitColumns])];
+      
+      // Merge data: For each patient, find their visits and combine
+      const mergedData = patientsData.map((patient: any) => {
+        // Find matching visits for this patient
+        const patientVisits = visitsData.filter((visit: any) => {
+          // Match by Patient ID or Name
+          const patientId = patient['Patient ID'] || patient['PatientID'] || patient['patient_id'];
+          const visitPatientId = visit['Patient ID'] || visit['PatientID'] || visit['patient_id'];
+          const patientName = patient['Name'] || patient['name'];
+          const visitPatientName = visit['Patient Name'] || visit['PatientName'] || visit['patient_name'];
+          
+          return (patientId && visitPatientId && patientId === visitPatientId) ||
+                 (patientName && visitPatientName && patientName === visitPatientName);
+        });
+        
+        // If patient has visits, create one row per visit
+        // If no visits, create one row with just patient data
+        if (patientVisits.length > 0) {
+          return patientVisits.map((visit: any) => ({
+            ...patient,
+            ...visit,
+          }));
+        } else {
+          return [patient];
+        }
+      }).flat();
       
       return {
-        data,
-        columns,
-        rowCount: data.length,
+        data: mergedData,
+        columns: allColumns,
+        rowCount: mergedData.length,
       };
     } catch (error) {
       throw new Error(`Failed to parse Excel file: ${(error as Error).message}`);
@@ -214,6 +260,7 @@ export class ImportService {
     const patterns: Record<string, RegExp> = {
       // Patient fields
       name: /^(name|patient.*name|full.*name|patient)$/i,
+      patientId: /^(patient.*id|patientid|patient_id)$/i,
       age: /^(age|patient.*age|years)$/i,
       gender: /^(gender|sex)$/i,
       contact: /^(contact|phone|mobile|number|cell|telephone)$/i,
@@ -224,6 +271,7 @@ export class ImportService {
       
       // Visit fields
       visitDate: /^(visit.*date|date.*visit|consultation.*date|date)$/i,
+      visitType: /^(visit.*type|type|consultation.*type)$/i,
       chiefComplaint: /^(chief.*complaint|complaint|presenting.*complaint|symptoms)$/i,
       diagnosis: /^(diagnosis|diagnosed|condition)$/i,
       treatment: /^(treatment|plan|management)$/i,
