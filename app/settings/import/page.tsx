@@ -5,7 +5,6 @@ import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowRight, ArrowLef
 import { notificationManager } from '@/lib/notifications';
 
 type Step = 'upload' | 'mapping' | 'validation' | 'importing' | 'complete';
-type DuplicateStrategy = 'skip' | 'update' | 'create';
 
 export default function ImportPage() {
   const [step, setStep] = useState<Step>('upload');
@@ -16,7 +15,6 @@ export default function ImportPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('skip');
   
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -62,7 +60,7 @@ export default function ImportPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: parsedData.preview, // Only validate preview for speed
+          data: parsedData.fullData || parsedData.preview, // Validate full data
           mapping,
         }),
       });
