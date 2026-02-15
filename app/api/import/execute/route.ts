@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
               
               try {
                 // Map row to patient and visit data
-                const { patient: patientData, visit: visitData } = importService.mapRowToPatientAndVisit(row, mapping);
+                const { patient: patientData, visit: visitData } = await importService.mapRowToPatientAndVisit(row, mapping);
                 
                 // Skip if name is empty
                 if (!patientData.name) {

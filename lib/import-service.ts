@@ -340,9 +340,9 @@ export class ImportService {
   /**
    * Map row data to patient and visit objects
    */
-  mapRowToPatientAndVisit(row: any, mapping: ColumnMapping): { patient: any; visit: any | null } {
+  async mapRowToPatientAndVisit(row: any, mapping: ColumnMapping): Promise<{ patient: any; visit: any | null }> {
     const patient = {
-      patientId: generatePatientId(),
+      patientId: await generatePatientId(), // Now properly awaited
       name: this.getMappedValue(row, mapping, 'name')?.toString().trim() || '',
       age: this.parseNumber(this.getMappedValue(row, mapping, 'age')),
       gender: this.normalizeGender(this.getMappedValue(row, mapping, 'gender')),
@@ -390,8 +390,8 @@ export class ImportService {
   /**
    * Map row data to patient object (legacy - for backward compatibility)
    */
-  mapRowToPatient(row: any, mapping: ColumnMapping): any {
-    return this.mapRowToPatientAndVisit(row, mapping).patient;
+  async mapRowToPatient(row: any, mapping: ColumnMapping): Promise<any> {
+    return (await this.mapRowToPatientAndVisit(row, mapping)).patient;
   }
   
   // Helper methods
