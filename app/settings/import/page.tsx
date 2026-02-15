@@ -5,6 +5,7 @@ import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowRight, ArrowLef
 import { notificationManager } from '@/lib/notifications';
 
 type Step = 'upload' | 'mapping' | 'validation' | 'importing' | 'complete';
+type DuplicateStrategy = 'skip' | 'update' | 'create';
 
 export default function ImportPage() {
   const [step, setStep] = useState<Step>('upload');
@@ -15,6 +16,7 @@ export default function ImportPage() {
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [duplicateStrategy, setDuplicateStrategy] = useState<DuplicateStrategy>('skip');
   
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];
@@ -60,7 +62,7 @@ export default function ImportPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: parsedData.preview, // Validate preview for speed
+          data: parsedData.preview, // Only validate preview for speed
           mapping,
         }),
       });
@@ -89,17 +91,29 @@ export default function ImportPage() {
     setStep('importing');
     setProgress(0);
     
+    // Smooth incremental progress animation
+    let currentProgress = 0;
+    const progressInterval = setInterval(() => {
+      if (currentProgress < 90) {
+        // Increment by random small amounts for natural feel
+        const increment = Math.floor(Math.random() * 3) + 1; // 1-3% at a time
+        currentProgress = Math.min(currentProgress + increment, 90);
+        setProgress(currentProgress);
+      }
+    }, 150); // Update every 150ms for smooth incremental animation
+    
     try {
       const response = await fetch('/api/import/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          data: parsedData.preview, // Import full data (not just preview)
+          data: parsedData.fullData || parsedData.preview,
           mapping,
         }),
       });
       
       if (!response.ok) {
+        clearInterval(progressInterval);
         throw new Error('Import failed');
       }
       
@@ -108,6 +122,7 @@ export default function ImportPage() {
       const decoder = new TextDecoder();
       
       if (!reader) {
+        clearInterval(progressInterval);
         throw new Error('No response stream');
       }
       
@@ -122,26 +137,46 @@ export default function ImportPage() {
           if (line.startsWith('data: ')) {
             const data = JSON.parse(line.slice(6));
             
-            if (data.progress !== undefined) {
+            if (data.progress !== undefined && data.progress > currentProgress) {
+              currentProgress = data.progress;
               setProgress(data.progress);
             }
             
             if (data.result) {
-              setResult(data.result);
-              setStep('complete');
-              notificationManager.success(
-                'Import Complete',
-                `Imported ${data.result.success} patients successfully`
-              );
+              clearInterval(progressInterval);
+              // Animate to 100%
+              let finalProgress = currentProgress;
+              const finalInterval = setInterval(() => {
+                finalProgress += 2;
+                if (finalProgress >= 100) {
+                  finalProgress = 100;
+                  setProgress(100);
+                  clearInterval(finalInterval);
+                  
+                  // Show complete screen after reaching 100%
+                  setTimeout(() => {
+                    setResult(data.result);
+                    setStep('complete');
+                    notificationManager.success(
+                      'Import Complete',
+                      `Imported ${data.result.success} patients successfully`
+                    );
+                  }, 300);
+                } else {
+                  setProgress(finalProgress);
+                }
+              }, 50);
             }
             
             if (data.error) {
+              clearInterval(progressInterval);
               throw new Error(data.error);
             }
           }
         }
       }
     } catch (error) {
+      clearInterval(progressInterval);
       notificationManager.error('Import Error', (error as Error).message);
       setStep('validation');
     }
@@ -256,6 +291,7 @@ export default function ImportPage() {
                 >
                   <option value="">Skip this column</option>
                   <optgroup label="Patient Information">
+                    <option value="patientId">Patient ID (from source system)</option>
                     <option value="name">Name *</option>
                     <option value="age">Age</option>
                     <option value="gender">Gender</option>
@@ -267,6 +303,7 @@ export default function ImportPage() {
                   </optgroup>
                   <optgroup label="Visit/Consultation Details">
                     <option value="visitDate">Visit Date</option>
+                    <option value="visitType">Visit Type</option>
                     <option value="chiefComplaint">Chief Complaint</option>
                     <option value="diagnosis">Diagnosis</option>
                     <option value="treatment">Treatment</option>
@@ -423,13 +460,16 @@ export default function ImportPage() {
         <div className="bg-white p-8 rounded-xl shadow-lg text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-brand-teal mx-auto mb-4"></div>
           <h2 className="text-xl font-semibold mb-4">Importing Data...</h2>
-          <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
+          <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden relative">
             <div
-              className="bg-brand-teal h-4 rounded-full transition-all duration-300"
+              className="bg-gradient-to-r from-brand-teal to-green-500 h-4 rounded-full transition-all duration-500 ease-out relative overflow-hidden"
               style={{ width: `${progress}%` }}
-            ></div>
+            >
+              {/* Animated shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"></div>
+            </div>
           </div>
-          <p className="text-gray-600">{progress}% complete</p>
+          <p className="text-gray-600 font-semibold">{progress}% complete</p>
           <p className="text-sm text-gray-500 mt-2">Please don't close this page</p>
         </div>
       )}

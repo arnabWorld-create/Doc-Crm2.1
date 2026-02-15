@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Auto-detect column mapping
     const suggestedMapping = importService.autoMapColumns(parsedData.columns);
     
-    // Return preview (first 10 rows)
+    // Return preview (first 10 rows for display) and full data for import
     return NextResponse.json({
       fileName: file.name,
       fileSize: file.size,
@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       columns: parsedData.columns,
       suggestedMapping,
       preview: parsedData.data.slice(0, 10),
+      fullData: parsedData.data, // Include full data for import
     });
   } catch (error) {
     console.error('Parse error:', error);
