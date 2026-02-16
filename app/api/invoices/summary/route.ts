@@ -52,7 +52,7 @@ export const GET = withMiddleware(
         if (patient.visits && Array.isArray(patient.visits)) {
           for (const visit of patient.visits) {
             if (visit.fees && visit.fees.length > 0) {
-              const totalAmount = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
+              const totalAmount = visit.fees.reduce((sum: number, fee) => sum + fee.total, 0);
               invoices.push({
                 id: visit.id,
                 invoiceNumber: `INV-${visit.id.substring(0, 8)}`,
