@@ -1,6 +1,5 @@
 import prisma from './prisma';
 import { logger } from './logger';
-import { extractFeesFromNotes } from './fee-utils';
 
 interface PatientAnalytics {
   id: string;
@@ -34,12 +33,8 @@ export async function calculatePatientAnalytics() {
     const patients = await prisma.patient.findMany({
       include: {
         visits: {
-          select: {
-            id: true,
-            visitDate: true,
-            visitType: true,
-            notes: true,
-            paidBy: true,
+          include: {
+            fees: true,
           },
           orderBy: { visitDate: 'desc' },
         },
@@ -73,15 +68,14 @@ export async function calculatePatientAnalytics() {
         // Skip patients with no visits
         if (visits.length === 0) return null;
 
-        // Calculate total fees from visit notes
+        // Calculate total fees from VisitFee table
         let totalFeesFromVisits = 0;
         const paymentMethodCounts: { [key: string]: number } = {};
         
         visits.forEach(visit => {
-          const feesData = extractFeesFromNotes(visit.notes);
-          if (feesData) {
-            totalFeesFromVisits += feesData.total;
-          }
+          // Sum fees from VisitFee table
+          const visitTotal = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
+          totalFeesFromVisits += visitTotal;
           
           if (visit.paidBy) {
             paymentMethodCounts[visit.paidBy] = (paymentMethodCounts[visit.paidBy] || 0) + 1;
@@ -113,8 +107,7 @@ export async function calculatePatientAnalytics() {
           const date = new Date(visit.visitDate);
           const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
           
-          const feesData = extractFeesFromNotes(visit.notes);
-          const visitFees = feesData ? feesData.total : 0;
+          const visitFees = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
           
           const existing = monthlyMap.get(monthKey) || { visits: 0, fees: 0 };
           monthlyMap.set(monthKey, {
@@ -134,12 +127,12 @@ export async function calculatePatientAnalytics() {
 
         // Recent visits (last 5)
         const recentVisits = visits.slice(0, 5).map(visit => {
-          const feesData = extractFeesFromNotes(visit.notes);
+          const visitFees = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
           return {
             id: visit.id,
             visitDate: visit.visitDate.toISOString(),
             visitType: visit.visitType,
-            fees: feesData ? feesData.total : 0,
+            fees: visitFees,
             paidBy: visit.paidBy || undefined,
           };
         });

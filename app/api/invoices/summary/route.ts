@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { withMiddleware, successResponse } from '@/lib/middleware';
 import { logger } from '@/lib/logger';
-import { extractFeesFromNotes } from '@/lib/fee-utils';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
 import { requirePermission } from '@/lib/rbac';
 
@@ -29,6 +28,16 @@ export const GET = withMiddleware(
               createdAt: true,
               notes: true,
               paidBy: true,
+              fees: {
+                select: {
+                  id: true,
+                  serviceName: true,
+                  amount: true,
+                  quantity: true,
+                  discount: true,
+                  total: true,
+                }
+              }
             },
             orderBy: { createdAt: 'desc' },
           },
@@ -42,22 +51,20 @@ export const GET = withMiddleware(
       for (const patient of patients) {
         if (patient.visits && Array.isArray(patient.visits)) {
           for (const visit of patient.visits) {
-            if (visit.notes) {
-              const feesData = extractFeesFromNotes(visit.notes);
-              if (feesData && feesData.fees && feesData.fees.length > 0) {
-                invoices.push({
-                  id: visit.id,
-                  invoiceNumber: `INV-${visit.id.substring(0, 8)}`,
-                  patientId: patient.id,
-                  patientName: patient.name,
-                  amount: feesData.total,
-                  status: visit.paidBy ? 'paid' : 'pending',
-                  dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                  createdAt: visit.createdAt,
-                  visitId: visit.id,
-                  paymentMethod: visit.paidBy || undefined,
-                });
-              }
+            if (visit.fees && visit.fees.length > 0) {
+              const totalAmount = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
+              invoices.push({
+                id: visit.id,
+                invoiceNumber: `INV-${visit.id.substring(0, 8)}`,
+                patientId: patient.id,
+                patientName: patient.name,
+                amount: totalAmount,
+                status: visit.paidBy ? 'paid' : 'pending',
+                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                createdAt: visit.createdAt,
+                visitId: visit.id,
+                paymentMethod: visit.paidBy || undefined,
+              });
             }
           }
         }

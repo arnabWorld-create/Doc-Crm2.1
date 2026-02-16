@@ -2,6 +2,8 @@
  * Utility functions for handling visit fees
  */
 
+import prisma from './prisma';
+
 export interface VisitFeeItem {
   id: string;
   serviceName: string;
@@ -17,7 +19,34 @@ export interface FeesData {
 }
 
 /**
- * Extract fees from visit notes
+ * Get fees for a visit from the VisitFee table
+ */
+export async function getVisitFees(visitId: string): Promise<FeesData | null> {
+  const fees = await prisma.visitFee.findMany({
+    where: { visitId },
+    select: {
+      id: true,
+      serviceName: true,
+      amount: true,
+      quantity: true,
+      discount: true,
+      total: true,
+    }
+  });
+
+  if (fees.length === 0) return null;
+
+  const total = fees.reduce((sum, fee) => sum + fee.total, 0);
+
+  return {
+    fees,
+    total,
+  };
+}
+
+/**
+ * Extract fees from visit notes (DEPRECATED - for backward compatibility only)
+ * Use getVisitFees() instead
  */
 export function extractFeesFromNotes(notes: string | null | undefined): FeesData | null {
   if (!notes) return null;

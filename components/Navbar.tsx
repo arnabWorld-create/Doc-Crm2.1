@@ -100,7 +100,7 @@ const Navbar = () => {
               </Link>
               <Link href="/payments" className="flex items-center space-x-2 px-4 py-2 rounded-lg text-brand-teal hover:bg-brand-teal hover:text-white transition-all font-medium">
                 <CreditCard className="h-4 w-4" />
-                <span>Payments</span>
+                <span>FinX</span>
               </Link>
             </div>
           </div>
@@ -257,7 +257,7 @@ const Navbar = () => {
                 }`}
               >
                 <CreditCard className="h-5 w-5" />
-                <span>Payments</span>
+                <span>FinX</span>
               </Link>
               <Link
                 href="/settings/profile"

@@ -114,6 +114,20 @@ export async function POST(
         data: visitData,
       });
 
+      // Create fees if provided
+      if (body.visitFees && Array.isArray(body.visitFees) && body.visitFees.length > 0) {
+        await tx.visitFee.createMany({
+          data: body.visitFees.map((fee: any) => ({
+            visitId: newVisit.id,
+            serviceName: fee.serviceName || 'Service',
+            amount: parseFloat(fee.amount) || 0,
+            quantity: parseInt(fee.quantity) || 1,
+            discount: parseFloat(fee.discount) || 0,
+            total: parseFloat(fee.total) || 0,
+          }))
+        });
+      }
+
       // Create medications if provided
       if (body.medications && Array.isArray(body.medications)) {
         const medicationsToCreate = body.medications
@@ -136,10 +150,13 @@ export async function POST(
         }
       }
 
-      // Return visit with medications
+      // Return visit with fees and medications
       return tx.visit.findUnique({
         where: { id: newVisit.id },
-        include: { medications: true },
+        include: { 
+          fees: true,
+          medications: true 
+        },
       });
     });
 

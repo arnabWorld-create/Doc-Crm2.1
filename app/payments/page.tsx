@@ -417,8 +417,8 @@ export default function PaymentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Payments & Invoices</h1>
-          <p className="text-gray-600 mt-1">Manage patient payments and invoices</p>
+          <h1 className="text-3xl font-bold text-gray-900">FinX</h1>
+          <p className="text-gray-600 mt-1">Financial insights & payment management</p>
         </div>
         <div className="p-3 bg-brand-teal/10 rounded-lg">
           <CreditCard className="w-8 h-8 text-brand-teal" />

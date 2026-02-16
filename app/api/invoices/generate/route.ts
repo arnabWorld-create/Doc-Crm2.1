@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { extractFeesFromNotes } from '@/lib/fee-utils';
 import { logger } from '@/lib/logger';
 import { requirePermission } from '@/lib/rbac';
 
@@ -17,10 +16,20 @@ export async function POST(request: NextRequest) {
   try {
     logger.info('Starting invoice generation from visit fees');
 
-    // Get all visits with notes containing fees
+    // Get all visits with fees
     const visits = await prisma.visit.findMany({
       include: {
         patient: true,
+        fees: {
+          select: {
+            id: true,
+            serviceName: true,
+            amount: true,
+            quantity: true,
+            discount: true,
+            total: true,
+          }
+        }
       },
     });
 
@@ -30,19 +39,14 @@ export async function POST(request: NextRequest) {
     const failedInvoices = [];
 
     for (const visit of visits) {
-      // Extract fees from visit notes
-      if (!visit.notes) {
-        logger.info(`Visit ${visit.id} has no notes, skipping`);
+      // Check if visit has fees
+      if (!visit.fees || visit.fees.length === 0) {
+        logger.info(`Visit ${visit.id} has no fees, skipping`);
         continue;
       }
 
-      const feesData = extractFeesFromNotes(visit.notes);
-      if (!feesData || !feesData.fees || feesData.fees.length === 0) {
-        logger.info(`Visit ${visit.id} has no fees in notes, skipping`);
-        continue;
-      }
-
-      logger.info(`Visit ${visit.id} has ${feesData.fees.length} fees, total: ₹${feesData.total}`);
+      const totalAmount = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
+      logger.info(`Visit ${visit.id} has ${visit.fees.length} fees, total: ₹${totalAmount}`);
 
       // Check if invoice already exists for this visit
       try {
@@ -69,13 +73,13 @@ export async function POST(request: NextRequest) {
             invoiceNumber,
             patientId: visit.patientId,
             visitId: visit.id,
-            amount: feesData.total,
+            amount: totalAmount,
             currency: 'INR',
             status: 'pending',
             issuedDate: new Date(),
             dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
             items: {
-              create: feesData.fees.map(fee => ({
+              create: visit.fees.map(fee => ({
                 description: fee.serviceName,
                 quantity: fee.quantity,
                 unitPrice: fee.amount,
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
         failedInvoices.push({
           visitId: visit.id,
           invoiceNumber,
-          amount: feesData.total,
+          amount: totalAmount,
           error: String(invoiceError),
         });
       }

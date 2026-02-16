@@ -4,7 +4,6 @@ import { withMiddleware, successResponse } from '@/lib/middleware';
 import { requirePermission } from '@/lib/rbac';
 import { logger } from '@/lib/logger';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
-import { extractFeesFromNotes } from '@/lib/fee-utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -158,6 +157,16 @@ export const GET = withMiddleware(
               visitType: true,
               notes: true,
               paidBy: true,
+              fees: {
+                select: {
+                  id: true,
+                  serviceName: true,
+                  amount: true,
+                  quantity: true,
+                  discount: true,
+                  total: true,
+                }
+              }
             },
             orderBy: { visitDate: 'desc' },
           },
@@ -193,15 +202,14 @@ export const GET = withMiddleware(
           // Skip patients with no visits or below minimum visits threshold
           if (visits.length < minVisits) return null;
 
-          // Calculate total fees from visit notes
+          // Calculate total fees from VisitFee table
           let totalFeesFromVisits = 0;
           const paymentMethodCounts: { [key: string]: number } = {};
           
           visits.forEach(visit => {
-            const feesData = extractFeesFromNotes(visit.notes);
-            if (feesData) {
-              totalFeesFromVisits += feesData.total;
-            }
+            // Sum fees from VisitFee table
+            const visitTotal = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
+            totalFeesFromVisits += visitTotal;
             
             if (visit.paidBy) {
               paymentMethodCounts[visit.paidBy] = (paymentMethodCounts[visit.paidBy] || 0) + 1;
@@ -233,8 +241,7 @@ export const GET = withMiddleware(
             const date = new Date(visit.visitDate);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             
-            const feesData = extractFeesFromNotes(visit.notes);
-            const visitFees = feesData ? feesData.total : 0;
+            const visitFees = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
             
             const existing = monthlyMap.get(monthKey) || { visits: 0, fees: 0 };
             monthlyMap.set(monthKey, {
@@ -254,12 +261,12 @@ export const GET = withMiddleware(
 
           // Recent visits (last 5)
           const recentVisits = visits.slice(0, 5).map(visit => {
-            const feesData = extractFeesFromNotes(visit.notes);
+            const visitFees = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
             return {
               id: visit.id,
               visitDate: visit.visitDate.toISOString(),
               visitType: visit.visitType,
-              fees: feesData ? feesData.total : 0,
+              fees: visitFees,
               paidBy: visit.paidBy || undefined,
             };
           });

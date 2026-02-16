@@ -208,31 +208,20 @@ export const POST = withMiddleware(
       visitCreateData.followUpDate = new Date(visitData.followUpDate);
     }
 
-    // BETA SECURITY DECISION: Storing fees as JSON in notes field
-    // REASON: Avoid schema migration during rapid MVP iteration
-    // RISK: Can't query/filter by fee amount, potential JSON corruption
-    // IMPACT: Analytics limited, manual fee extraction required
-    // MIGRATION PATH: 
-    //   1. Create VisitFee table with foreign key to Visit
-    //   2. Parse all existing Visit.notes for __FEES_JSON__ markers
-    //   3. Extract fee data and insert into VisitFee table
-    //   4. Remove __FEES_JSON__ markers from notes
-    //   5. Update all fee-related queries to use VisitFee table
-    // ESTIMATED EFFORT: 2-3 weeks post-funding
-    // TODO POST-FUNDING: Normalize fees to proper table
-    // Store visit fees in notes if provided
-    if (visitFees && Array.isArray(visitFees) && visitFees.length > 0) {
-      const feesData = {
-        fees: visitFees,
-        total: totalFeeAmount || visitFees.reduce((sum, f) => sum + f.total, 0),
-      };
-      const feesJson = `__FEES_JSON__${JSON.stringify(feesData)}__FEES_JSON__`;
-      visitCreateData.notes = visitCreateData.notes ? `${visitCreateData.notes}\n${feesJson}` : feesJson;
-    }
-
     // Filter out empty medicines (only include if name is provided)
     const validMedications = visitData.medications && Array.isArray(visitData.medications)
       ? visitData.medications.filter((med: any) => med.name && med.name.trim())
+      : [];
+
+    // Prepare visit fees for creation
+    const validVisitFees = visitFees && Array.isArray(visitFees) && visitFees.length > 0
+      ? visitFees.map((fee: any) => ({
+          serviceName: fee.serviceName || 'Service',
+          amount: parseFloat(fee.amount) || 0,
+          quantity: parseInt(fee.quantity) || 1,
+          discount: parseFloat(fee.discount) || 0,
+          total: parseFloat(fee.total) || 0,
+        }))
       : [];
 
     // Create patient with first visit
@@ -250,6 +239,12 @@ export const POST = withMiddleware(
         visits: {
           create: {
             ...visitCreateData,
+            // Create fees if provided
+            fees: validVisitFees.length > 0
+              ? {
+                  create: validVisitFees,
+                }
+              : undefined,
             // Create medications if provided
             medications: validMedications.length > 0
               ? {
@@ -268,7 +263,12 @@ export const POST = withMiddleware(
         },
       },
       include: {
-        visits: true,
+        visits: {
+          include: {
+            fees: true,
+            medications: true,
+          }
+        },
       },
     });
 

@@ -74,6 +74,7 @@ model Visit {
   rbs            Int?
   paidBy         String?
   medications    Medication[]
+  fees           VisitFee[]
   patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
 
   @@index([patientId])
@@ -249,6 +250,22 @@ model Refund {
   @@index([status])
   @@index([paymentId], map: "idx_refunds_payment_id")
   @@map("refunds")
+}
+
+model VisitFee {
+  id          String   @id @default(cuid())
+  visitId     String
+  serviceName String
+  amount      Float
+  quantity    Int      @default(1)
+  discount    Float    @default(0)
+  total       Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  visit       Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
+
+  @@index([visitId])
+  @@map("visit_fees")
 }
 
 model AnalyticsCache {

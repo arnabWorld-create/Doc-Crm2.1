@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodSchema } from 'zod';
 import { logger } from './logger';
-import { RATE_LIMITS, rateLimiter } from './rate-limiter';
+import { redisRateLimiter, RATE_LIMITS } from './redis-rate-limiter';
 import { ApiError, ApiErrors } from './api-error';
 
 /**
@@ -66,43 +66,39 @@ export async function withRateLimit(
   const ip = getClientIp(request);
   const key = `${request.method}:${request.nextUrl.pathname}:${ip}`;
 
-  // Use in-memory rate limiter
-  const allowed = rateLimiter.isAllowed(key, config.limit, config.windowMs);
-  const remaining = rateLimiter.getRemaining(key, config.limit);
-  const reset = rateLimiter.getResetTime(key);
+  // Use Redis rate limiter (with in-memory fallback)
+  const result = await redisRateLimiter.isAllowed(
+    key,
+    config.limit,
+    config.windowMs
+  );
 
-  if (!allowed) {
+  if (!result.success) {
     const rateLimitResponse = NextResponse.json(
       ApiErrors.tooManyRequests().toJSON(),
       { status: 429 }
     );
 
-    if (reset) {
-      const retryAfter = Math.ceil((reset - Date.now()) / 1000);
-      rateLimitResponse.headers.set('Retry-After', String(Math.max(0, retryAfter)));
-    }
-
-    if (remaining !== undefined) {
-      rateLimitResponse.headers.set('X-RateLimit-Remaining', String(remaining));
-      rateLimitResponse.headers.set('X-RateLimit-Limit', String(config.limit));
-    }
+    const retryAfter = Math.ceil((result.reset - Date.now()) / 1000);
+    rateLimitResponse.headers.set('Retry-After', String(Math.max(0, retryAfter)));
+    rateLimitResponse.headers.set('X-RateLimit-Remaining', String(result.remaining));
+    rateLimitResponse.headers.set('X-RateLimit-Limit', String(result.limit));
+    rateLimitResponse.headers.set('X-RateLimit-Reset', String(Math.ceil(result.reset / 1000)));
 
     logger.warn('Rate limit exceeded', {
       ip,
       endpoint: request.nextUrl.pathname,
       method: request.method,
-      remaining,
+      remaining: result.remaining,
     });
 
     return rateLimitResponse;
   }
 
   // Add rate limit headers to successful requests
-  if (remaining !== undefined && reset) {
-    response.headers.set('X-RateLimit-Remaining', String(remaining));
-    response.headers.set('X-RateLimit-Limit', String(config.limit));
-    response.headers.set('X-RateLimit-Reset', String(Math.ceil(reset / 1000)));
-  }
+  response.headers.set('X-RateLimit-Remaining', String(result.remaining));
+  response.headers.set('X-RateLimit-Limit', String(result.limit));
+  response.headers.set('X-RateLimit-Reset', String(Math.ceil(result.reset / 1000)));
 
   return null;
 }
