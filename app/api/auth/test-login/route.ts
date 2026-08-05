@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyPassword } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,30 +10,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, password } = body;
 
-    console.log('Test login attempt for:', email);
+    logger.info('Test login attempt', { email });
 
     // Find user
     const user = await prisma.user.findUnique({
       where: { email },
     });
 
-    console.log('User found:', user ? 'yes' : 'no');
-
     if (!user) {
+      logger.warn('Test login with non-existent email', { email });
       return NextResponse.json(
-        { error: 'User not found', email },
-        { status: 404 }
+        { error: 'Invalid email or password' },
+        { status: 401 }
       );
     }
 
     // Verify password
     const isPasswordValid = await verifyPassword(password, user.password);
 
-    console.log('Password valid:', isPasswordValid);
-
     if (!isPasswordValid) {
+      logger.warn('Test login with invalid password', { email });
       return NextResponse.json(
-        { error: 'Invalid password' },
+        { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
@@ -47,7 +46,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error('Test login error:', error);
+    logger.error('Test login error', error);
     const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
       { error: 'Internal server error', message: sanitizeErrorForClient(error) },
