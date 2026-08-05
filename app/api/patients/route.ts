@@ -223,7 +223,7 @@ export const POST = withMiddleware(
 
     // The database unique constraint protects against simultaneous requests
     // selecting the same next ID. Retry with a fresh ID in that rare case.
-    let patient;
+    let patient: any;
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const patientId = await generatePatientId();
 
