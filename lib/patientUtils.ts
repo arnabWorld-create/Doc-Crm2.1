@@ -1,26 +1,27 @@
 import prisma from './prisma';
 
-// Generate next patient ID (FC-001, FC-002, etc.)
+// Generate the next patient ID (FC-001, FC-002, ..., FC-1000, etc.).
+// IDs are strings, so database text sorting would place FC-999 ahead of
+// FC-1000. Calculate the largest numeric suffix instead.
 export async function generatePatientId(): Promise<string> {
-  const lastPatient = await prisma.patient.findFirst({
-    orderBy: {
-      patientId: 'desc',
+  const patients = await prisma.patient.findMany({
+    where: {
+      patientId: {
+        startsWith: 'FC-',
+      },
     },
     select: {
       patientId: true,
     },
   });
 
-  if (!lastPatient) {
-    return 'FC-001';
-  }
-
-  // Extract number from FC-XXX
-  const lastNumber = parseInt(lastPatient.patientId.split('-')[1]);
-  const nextNumber = lastNumber + 1;
+  const lastNumber = patients.reduce<number>((highest: number, patient: { patientId: string }) => {
+    const match = /^FC-(\d+)$/.exec(patient.patientId);
+    const number = match ? Number.parseInt(match[1], 10) : 0;
+    return Number.isSafeInteger(number) ? Math.max(highest, number) : highest;
+  }, 0);
   
-  // Pad with zeros (FC-001, FC-002, ..., FC-999)
-  return `FC-${String(nextNumber).padStart(3, '0')}`;
+  return `FC-${String(lastNumber + 1).padStart(3, '0')}`;
 }
 
 // Format patient ID for display

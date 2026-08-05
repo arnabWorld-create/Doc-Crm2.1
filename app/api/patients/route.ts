@@ -141,9 +141,6 @@ export const POST = withMiddleware(
     const { error } = await requirePermission(request, 'patients', 'write');
     if (error) throw error;
 
-    // Generate patient ID
-    const patientId = await generatePatientId();
-
     // Separate patient info from visit info
     const { name, age, gender, contact, address, bloodGroup, allergies, chronicConditions, visitFees, totalFeeAmount, ...visitData } = data;
 
@@ -224,53 +221,68 @@ export const POST = withMiddleware(
         }))
       : [];
 
-    // Create patient with first visit
-    const patient = await prisma.patient.create({
-      data: {
-        patientId,
-        name,
-        age: age ? parseInt(age) : null,
-        gender,
-        contact,
-        address,
-        bloodGroup,
-        allergies,
-        chronicConditions,
-        visits: {
-          create: {
-            ...visitCreateData,
-            // Create fees if provided
-            fees: validVisitFees.length > 0
-              ? {
-                  create: validVisitFees,
-                }
-              : undefined,
-            // Create medications if provided
-            medications: validMedications.length > 0
-              ? {
-                  create: validMedications.map((med: any) => ({
-                    medicine: med.name.trim(),
-                    dose: med.dose || null,
-                    frequency: med.frequency || null,
-                    timing: med.timing || null,
-                    duration: med.duration || null,
-                    startFrom: med.startFrom || null,
-                    instructions: med.instructions || null,
-                  })),
-                }
-              : undefined,
+    // The database unique constraint protects against simultaneous requests
+    // selecting the same next ID. Retry with a fresh ID in that rare case.
+    let patient;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const patientId = await generatePatientId();
+
+      try {
+        patient = await prisma.patient.create({
+          data: {
+            patientId,
+            name,
+            age: age ? parseInt(age) : null,
+            gender,
+            contact,
+            address,
+            bloodGroup,
+            allergies,
+            chronicConditions,
+            visits: {
+              create: {
+                ...visitCreateData,
+                fees: validVisitFees.length > 0
+                  ? {
+                      create: validVisitFees,
+                    }
+                  : undefined,
+                medications: validMedications.length > 0
+                  ? {
+                      create: validMedications.map((med: any) => ({
+                        medicine: med.name.trim(),
+                        dose: med.dose || null,
+                        frequency: med.frequency || null,
+                        timing: med.timing || null,
+                        duration: med.duration || null,
+                        startFrom: med.startFrom || null,
+                        instructions: med.instructions || null,
+                      })),
+                    }
+                  : undefined,
+              },
+            },
           },
-        },
-      },
-      include: {
-        visits: {
           include: {
-            fees: true,
-            medications: true,
-          }
-        },
-      },
-    });
+            visits: {
+              include: {
+                fees: true,
+                medications: true,
+              }
+            },
+          },
+        });
+        break;
+      } catch (error: any) {
+        const duplicatePatientId =
+          error?.code === 'P2002' &&
+          (!error?.meta?.target || error.meta.target.includes('patientId'));
+
+        if (!duplicatePatientId || attempt === 4) {
+          throw error;
+        }
+      }
+    }
 
     // Create invoice if fees are provided
     // TODO: Uncomment after Prisma schema migration

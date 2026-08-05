@@ -318,35 +318,28 @@ export class ImportService {
   }
   
   /**
-   * Generate unique patient ID within transaction
-   * Adds random suffix to avoid collisions during batch imports
+   * Generate the next patient ID within an import transaction.
+   * Numeric selection avoids FC-999 sorting ahead of FC-1000.
    */
   async generateUniquePatientId(prisma: any): Promise<string> {
-    const lastPatient = await prisma.patient.findFirst({
-      orderBy: {
-        patientId: 'desc',
+    const patients = await prisma.patient.findMany({
+      where: {
+        patientId: {
+          startsWith: 'FC-',
+        },
       },
       select: {
         patientId: true,
       },
     });
 
-    if (!lastPatient) {
-      return 'FC-001';
-    }
-
-    // Extract number from FC-XXX
-    const match = lastPatient.patientId.match(/FC-(\d+)/);
-    if (!match) {
-      // Fallback if format is unexpected
-      return `FC-${Date.now().toString().slice(-6)}`;
-    }
+    const lastNumber = patients.reduce((highest: number, patient: { patientId: string }) => {
+      const match = /^FC-(\d+)$/.exec(patient.patientId);
+      const number = match ? Number.parseInt(match[1], 10) : 0;
+      return Number.isSafeInteger(number) ? Math.max(highest, number) : highest;
+    }, 0);
     
-    const lastNumber = parseInt(match[1]);
-    const nextNumber = lastNumber + 1;
-    
-    // Pad with zeros (FC-001, FC-002, ..., FC-999999)
-    return `FC-${String(nextNumber).padStart(3, '0')}`;
+    return `FC-${String(lastNumber + 1).padStart(3, '0')}`;
   }
   
   /**
