@@ -37,34 +37,30 @@ interface Visit {
   paidBy?: string;
 }
 
+interface ClinicProfile {
+  clinicName?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  invoiceHeader?: string | null;
+  invoiceFooter?: string | null;
+  receiptHeader?: string | null;
+  receiptFooter?: string | null;
+}
+
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] = useState<'analytics' | 'invoices' | 'payments'>('analytics');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [clinicSettings, setClinicSettings] = useState<any>(null);
-
   useEffect(() => {
     fetchData();
-    loadClinicSettings();
   }, []);
-
-  const loadClinicSettings = () => {
-    try {
-      if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem('clinic_settings');
-        console.log('Loading clinic settings from localStorage:', stored);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          console.log('Parsed clinic settings:', parsed);
-          setClinicSettings(parsed);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load clinic settings:', error);
-    }
-  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -116,24 +112,21 @@ export default function PaymentsPage() {
     }
   };
 
-  const handleDownloadInvoice = (invoice: Invoice) => {
-    // Load fresh clinic settings from localStorage
-    let settings = clinicSettings;
-    if (!settings) {
-      try {
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('clinic_settings');
-          console.log('Stored clinic settings:', stored);
-          if (stored) {
-            settings = JSON.parse(stored);
-            console.log('Parsed clinic settings:', settings);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load clinic settings:', error);
-      }
+  const getClinicProfile = async (): Promise<ClinicProfile | null> => {
+    try {
+      const response = await fetch('/api/clinic-profile');
+      return response.ok ? await response.json() : null;
+    } catch (error) {
+      console.error('Failed to load clinic profile:', error);
+      return null;
     }
-    console.log('Final settings for invoice:', settings);
+  };
+
+  const handleDownloadInvoice = async (invoice: Invoice) => {
+    const profile = await getClinicProfile();
+    const clinicAddress = [profile?.address, profile?.city, profile?.state, profile?.pincode]
+      .filter(Boolean)
+      .join(', ');
 
     // Generate a professional invoice PDF
     const invoiceHTML = `
@@ -181,10 +174,12 @@ export default function PaymentsPage() {
         <div class="container">
           <div class="header">
             <div class="clinic-info">
-              <h1>${settings?.clinicName || 'Clinic Name'}</h1>
-              <p>${settings?.clinicWebsite || 'Professional Medical Services'}</p>
-              ${settings?.clinicEmail ? `<p style="margin-top: 10px; font-size: 12px;">📧 ${settings.clinicEmail}</p>` : ''}
-              ${settings?.clinicPhone ? `<p style="font-size: 12px;">📱 ${settings.clinicPhone}</p>` : ''}
+              <h1>${profile?.clinicName || 'Clinic Name'}</h1>
+              <p>${profile?.website || 'Professional Medical Services'}</p>
+              ${profile?.invoiceHeader ? `<p style="margin-top: 10px; font-size: 12px;">${profile.invoiceHeader}</p>` : ''}
+              ${clinicAddress ? `<p style="font-size: 12px;">${clinicAddress}</p>` : ''}
+              ${profile?.email ? `<p style="margin-top: 10px; font-size: 12px;">Email: ${profile.email}</p>` : ''}
+              ${profile?.phone ? `<p style="font-size: 12px;">Phone: ${profile.phone}</p>` : ''}
             </div>
             <div class="invoice-title">
               <h2>INVOICE</h2>
@@ -245,7 +240,7 @@ export default function PaymentsPage() {
           
           <div class="footer">
             <p><strong>Payment Terms:</strong> Due upon receipt</p>
-            ${settings?.invoiceFooter ? `<p>${settings.invoiceFooter}</p>` : '<p>Thank you for choosing our clinic for your healthcare needs.</p>'}
+            ${profile?.invoiceFooter ? `<p>${profile.invoiceFooter}</p>` : '<p>Thank you for choosing our clinic for your healthcare needs.</p>'}
             <p style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">This is an automatically generated invoice. Please retain for your records.</p>
           </div>
         </div>
@@ -257,21 +252,8 @@ export default function PaymentsPage() {
     notificationManager.success('Success', 'Invoice downloaded');
   };
 
-  const handleDownloadReceipt = (invoice: Invoice) => {
-    // Load fresh clinic settings from localStorage
-    let settings = clinicSettings;
-    if (!settings) {
-      try {
-        if (typeof window !== 'undefined') {
-          const stored = localStorage.getItem('clinic_settings');
-          if (stored) {
-            settings = JSON.parse(stored);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load clinic settings:', error);
-      }
-    }
+  const handleDownloadReceipt = async (invoice: Invoice) => {
+    const profile = await getClinicProfile();
 
     // Generate a professional receipt PDF
     const receiptHTML = `
@@ -311,8 +293,8 @@ export default function PaymentsPage() {
         <div class="container">
           <div class="receipt-header">
             <h1>RECEIPT</h1>
-            <p>${settings?.clinicName || 'Clinic Name'} - Medical Services</p>
-            <p style="margin-top: 8px; font-size: 11px; color: #999;">Professional Healthcare Receipt</p>
+            <p>${profile?.clinicName || 'Clinic Name'} - Medical Services</p>
+            <p style="margin-top: 8px; font-size: 11px; color: #999;">${profile?.receiptHeader || 'Professional Healthcare Receipt'}</p>
           </div>
           
           <div class="receipt-details">
@@ -352,8 +334,8 @@ export default function PaymentsPage() {
           <div class="footer">
             <p><strong>Thank you for your payment!</strong></p>
             <p>Please retain this receipt for your records.</p>
-            ${settings?.receiptFooter ? `<p style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">${settings.receiptFooter}</p>` : `<p style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">${settings?.clinicName || 'Clinic Name'} | Professional Medical Services</p>`}
-            ${settings?.clinicEmail ? `<p>For inquiries, please contact us at ${settings.clinicEmail}</p>` : ''}
+            ${profile?.receiptFooter ? `<p style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">${profile.receiptFooter}</p>` : `<p style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">${profile?.clinicName || 'Clinic Name'} | Professional Medical Services</p>`}
+            ${profile?.email ? `<p>For inquiries, please contact us at ${profile.email}</p>` : ''}
           </div>
         </div>
       </body>

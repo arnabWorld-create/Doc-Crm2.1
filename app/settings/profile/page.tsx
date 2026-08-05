@@ -29,6 +29,10 @@ export default function ClinicProfilePage() {
     specialization: '',
     tagline: '',
     logo: '',
+    invoiceHeader: '',
+    invoiceFooter: '',
+    receiptHeader: '',
+    receiptFooter: '',
   });
 
   useEffect(() => {
@@ -40,6 +44,15 @@ export default function ClinicProfilePage() {
       const response = await fetch('/api/clinic-profile');
       if (response.ok) {
         const data = await response.json();
+        let legacySettings: Record<string, string> = {};
+
+        try {
+          const stored = window.localStorage.getItem('clinic_settings');
+          legacySettings = stored ? JSON.parse(stored) : {};
+        } catch (error) {
+          console.error('Failed to read legacy clinic settings:', error);
+        }
+
         setFormData({
           clinicName: data.clinicName || '',
           address: data.address || '',
@@ -56,7 +69,19 @@ export default function ClinicProfilePage() {
           specialization: data.specialization || '',
           tagline: data.tagline || '',
           logo: data.logo || '',
+          invoiceHeader: data.invoiceHeader || legacySettings.invoiceHeader || '',
+          invoiceFooter: data.invoiceFooter || legacySettings.invoiceFooter || '',
+          receiptHeader: data.receiptHeader || legacySettings.receiptHeader || '',
+          receiptFooter: data.receiptFooter || legacySettings.receiptFooter || '',
         });
+        if ([
+          legacySettings.invoiceHeader,
+          legacySettings.invoiceFooter,
+          legacySettings.receiptHeader,
+          legacySettings.receiptFooter,
+        ].some(Boolean)) {
+          setMessage('Legacy invoice and receipt settings were loaded. Save this profile to store them for all users.');
+        }
         if (data.logo) {
           setLogoPreview(data.logo);
         }
@@ -422,6 +447,59 @@ export default function ClinicProfilePage() {
                 onChange={handleChange}
                 className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none"
                 placeholder="General Physician"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Invoice and Receipt Settings */}
+        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
+          <h3 className="text-xl font-bold text-brand-teal mb-2">Invoice & Receipt Settings</h3>
+          <p className="text-sm text-gray-600 mb-4">Customize the text displayed on downloaded invoices and receipts.</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-brand-teal mb-2">Invoice Header</label>
+              <textarea
+                name="invoiceHeader"
+                value={formData.invoiceHeader}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none resize-none"
+                placeholder="Optional text below the invoice heading"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-brand-teal mb-2">Invoice Footer</label>
+              <textarea
+                name="invoiceFooter"
+                value={formData.invoiceFooter}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none resize-none"
+                placeholder="Terms, conditions, or thank-you message"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-brand-teal mb-2">Receipt Header</label>
+              <textarea
+                name="receiptHeader"
+                value={formData.receiptHeader}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none resize-none"
+                placeholder="Optional text below the receipt heading"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-brand-teal mb-2">Receipt Footer</label>
+              <textarea
+                name="receiptFooter"
+                value={formData.receiptFooter}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border-2 border-gray-200 px-4 py-2.5 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none resize-none"
+                placeholder="Thank-you message or payment terms"
               />
             </div>
           </div>

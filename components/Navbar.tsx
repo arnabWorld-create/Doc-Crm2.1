@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { Stethoscope, Users, Activity, Calendar, Settings, CalendarCheck, LogOut, Menu, X, CreditCard, Building2 } from 'lucide-react';
+import { Stethoscope, Users, Activity, Calendar, Settings, CalendarCheck, LogOut, Menu, X, CreditCard } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import React, { useState, useEffect, useRef } from 'react';
 
@@ -144,14 +144,6 @@ const Navbar = () => {
                       <span>Settings</span>
                     </Link>
                     <Link
-                      href="/settings/clinic"
-                      onClick={() => setShowDropdown(false)}
-                      className="w-full flex items-center space-x-2 px-4 py-2.5 text-brand-teal hover:bg-brand-teal/10 transition font-medium text-sm"
-                    >
-                      <Building2 className="h-4 w-4" />
-                      <span>Clinic Settings</span>
-                    </Link>
-                    <Link
                       href="/settings/fees"
                       onClick={() => setShowDropdown(false)}
                       className="w-full flex items-center space-x-2 px-4 py-2.5 text-brand-teal hover:bg-brand-teal/10 transition font-medium text-sm"
@@ -270,18 +262,6 @@ const Navbar = () => {
               >
                 <Settings className="h-5 w-5" />
                 <span>Settings</span>
-              </Link>
-              <Link
-                href="/settings/clinic"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all font-medium ${
-                  pathname === '/settings/clinic' 
-                    ? 'bg-brand-teal text-white' 
-                    : 'text-brand-teal hover:bg-brand-teal/10'
-                }`}
-              >
-                <Building2 className="h-5 w-5" />
-                <span>Clinic Settings</span>
               </Link>
               <button
                 onClick={() => {

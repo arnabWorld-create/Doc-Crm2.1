@@ -62,6 +62,10 @@ export async function PUT(req: NextRequest) {
           registrationNumber: body.registrationNumber,
           specialization: body.specialization,
           tagline: body.tagline,
+          invoiceHeader: body.invoiceHeader,
+          invoiceFooter: body.invoiceFooter,
+          receiptHeader: body.receiptHeader,
+          receiptFooter: body.receiptFooter,
         },
       });
     } else {

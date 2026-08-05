@@ -35,6 +35,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     { resource: 'payments', action: 'write' },
     { resource: 'invoices', action: 'read' },
     { resource: 'invoices', action: 'write' },
+    { resource: 'settings', action: 'read' },
   ],
   admin: [
     { resource: '*', action: '*' }, // Full access
