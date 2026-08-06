@@ -319,27 +319,12 @@ export class ImportService {
   
   /**
    * Generate the next patient ID within an import transaction.
-   * Numeric selection avoids FC-999 sorting ahead of FC-1000.
+   * Uses a PostgreSQL sequence for O(1) atomic generation.
    */
   async generateUniquePatientId(prisma: any): Promise<string> {
-    const patients = await prisma.patient.findMany({
-      where: {
-        patientId: {
-          startsWith: 'FC-',
-        },
-      },
-      select: {
-        patientId: true,
-      },
-    });
-
-    const lastNumber = patients.reduce((highest: number, patient: { patientId: string }) => {
-      const match = /^FC-(\d+)$/.exec(patient.patientId);
-      const number = match ? Number.parseInt(match[1], 10) : 0;
-      return Number.isSafeInteger(number) ? Math.max(highest, number) : highest;
-    }, 0);
-    
-    return `FC-${String(lastNumber + 1).padStart(3, '0')}`;
+    const result = await prisma.$queryRawUnsafe(`SELECT nextval('patient_id_seq') AS nextval`);
+    const nextVal = result[0].nextval;
+    return `FC-${String(nextVal).padStart(3, '0')}`;
   }
   
   /**
