@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ImportService } from '@/lib/import-service';
-import { requireAuth } from '@/lib/api-auth';
+import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -10,10 +11,18 @@ export const maxDuration = 300; // 5 minutes max for imports
 const activeImports = new Map<string, boolean>();
 
 /**
- * Execute import with progress streaming
+ * Execute import with progress streaming.
+ *
+ * FIX #1: Changed from requireAuth (any logged-in user) to
+ * requirePermission('patients', 'write') — bulk importing 5,000 patients
+ * is a write operation and must be restricted accordingly.
+ *
+ * FIX #3: Raw Prisma/internal error messages are no longer streamed
+ * to the client. User-friendly messages are sent instead.
  */
 export async function POST(request: NextRequest) {
-  const { error, user } = await requireAuth(request);
+  // FIX #1: Require explicit write permission, not just any valid token
+  const { error, user } = await requirePermission(request, 'patients', 'write');
   if (error) return error;
   
   const userId = user.userId;
@@ -67,145 +76,128 @@ export async function POST(request: NextRequest) {
         const totalBatches = Math.ceil(data.length / batchSize);
         
         try {
+          // Pre-generate all patient IDs needed for this import to avoid
+          // race conditions when multiple rows in the same batch need new IDs.
+          // We'll pop from this pool inside the loop rather than querying mid-transaction.
+          const needsNewIds = data.filter((_: any, idx: number) => {
+            // We can't know ahead of time which rows are duplicates, so we
+            // generate enough IDs for every row — unused ones are simply discarded.
+            return true;
+          });
+          const preGeneratedIds = await importService.preallocatePatientIds(prisma, needsNewIds.length);
+          let idPool = [...preGeneratedIds];
+
           for (let i = 0; i < totalBatches; i++) {
             const batch = data.slice(i * batchSize, (i + 1) * batchSize);
+            const batchOffset = i * batchSize; // absolute start index of this batch
             
-            // Process batch in transaction (Issue 2)
-            try {
-              await prisma.$transaction(async (tx) => {
-                for (const row of batch) {
-                  const rowIndex = data.indexOf(row);
+            // Process each row individually so a single bad row doesn't roll
+            // back the whole batch.
+            for (let j = 0; j < batch.length; j++) {
+              const row = batch[j];
+              const rowIndex = batchOffset + j; // correct absolute index, no indexOf()
+              
+              try {
+                await prisma.$transaction(async (tx) => {
+                  // Map row to patient and visit data
+                  const { patient: patientData, visit: visitData } = await importService.mapRowToPatientAndVisit(row, mapping);
                   
-                  try {
-                    // Map row to patient and visit data
-                    const { patient: patientData, visit: visitData } = await importService.mapRowToPatientAndVisit(row, mapping);
-                    
-                    // Skip if name is empty
-                    if (!patientData.name) {
-                      failedCount++;
-                      errors.push({
-                        row: rowIndex + 2,
-                        error: 'Patient name is required',
-                      });
-                      continue;
-                    }
-                    
-                    // Check for duplicates (Issue 1)
-                    const duplicateCheck = await importService.checkDuplicate(patientData, tx);
-                    
-                    let patient;
-                    if (duplicateCheck.isDuplicate && duplicateStrategy !== 'create') {
-                      // Only handle duplicates if strategy is NOT 'create'
-                      if (duplicateStrategy === 'skip') {
-                        duplicatesSkipped++;
-                        successCount++;
-                        continue;
-                      } else if (duplicateStrategy === 'update') {
-                        // Update existing patient
-                        patient = await tx.patient.update({
-                          where: { id: duplicateCheck.existingPatient.id },
-                          data: {
-                            age: patientData.age || duplicateCheck.existingPatient.age,
-                            gender: patientData.gender || duplicateCheck.existingPatient.gender,
-                            bloodGroup: patientData.bloodGroup || duplicateCheck.existingPatient.bloodGroup,
-                            address: patientData.address || duplicateCheck.existingPatient.address,
-                            allergies: patientData.allergies || duplicateCheck.existingPatient.allergies,
-                            chronicConditions: patientData.chronicConditions || duplicateCheck.existingPatient.chronicConditions,
-                          },
-                        });
-                        duplicatesUpdated++;
-                      }
-                    } else {
-                      // Create new patient (either no duplicate OR strategy is 'create')
-                      // For 'create' strategy, always generate a new unique ID
-                      if (duplicateStrategy === 'create' || duplicateCheck.isDuplicate) {
-                        patientData.patientId = await importService.generateUniquePatientId(tx);
-                      }
-                      
-                      // Retry logic for duplicate patient IDs
-                      let retries = 0;
-                      const maxRetries = 5;
-                      while (retries < maxRetries) {
-                        try {
-                          patient = await tx.patient.create({
-                            data: patientData,
-                          });
-                          patientsCreated++;
-                          break; // Success, exit retry loop
-                        } catch (createError: any) {
-                          if (createError.code === 'P2002' && retries < maxRetries - 1) {
-                            // Unique constraint violation, generate new ID and retry
-                            retries++;
-                            patientData.patientId = await importService.generateUniquePatientId(tx);
-                            console.log(`Retry ${retries}: Generated new patient ID ${patientData.patientId}`);
-                            continue;
-                          }
-                          throw createError; // Re-throw if not duplicate or max retries reached
-                        }
-                      }
-                    }
-                    
-                    // Create visit if visit data exists
-                    if (visitData && patient) {
-                      await tx.visit.create({
-                        data: {
-                          ...visitData,
-                          patientId: patient.id,
-                        },
-                      });
-                      visitsCreated++;
-                    }
-                    
-                    successCount++;
-                  } catch (err: any) {
+                  // Skip if name is empty
+                  if (!patientData.name) {
                     failedCount++;
-                    // Better error messages (Issue 5)
-                    let errorMessage = err.message || 'Unknown error';
-                    
-                    // Log detailed error for debugging
-                    console.error(`Row ${rowIndex + 2} error:`, {
-                      message: err.message,
-                      code: err.code,
-                      meta: err.meta,
-                    });
-                    
-                    // User-friendly error messages
-                    if (err.code === 'P2002') {
-                      const target = err.meta?.target || [];
-                      if (target.includes('patientId')) {
-                        errorMessage = `Duplicate patient ID`;
-                      } else if (target.includes('contact')) {
-                        errorMessage = `Duplicate contact number`;
-                      } else {
-                        errorMessage = 'Duplicate record detected';
-                      }
-                    } else if (err.code === 'P2003') {
-                      errorMessage = 'Invalid reference data';
-                    } else if (errorMessage.includes('Unique constraint')) {
-                      errorMessage = 'Duplicate patient ID detected';
-                    } else if (errorMessage.includes('Foreign key constraint')) {
-                      errorMessage = 'Invalid reference data';
-                    } else if (errorMessage.includes('Invalid')) {
-                      errorMessage = `Invalid data: ${errorMessage}`;
-                    }
-                    
                     errors.push({
                       row: rowIndex + 2,
-                      error: errorMessage,
+                      error: 'Patient name is required',
                     });
+                    return; // return from transaction callback — not a throw, no rollback needed
                   }
+                  
+                  // Check for duplicates
+                  const duplicateCheck = await importService.checkDuplicate(patientData, tx);
+                  
+                  let patient;
+                  if (duplicateCheck.isDuplicate && duplicateStrategy !== 'create') {
+                    if (duplicateStrategy === 'skip') {
+                      duplicatesSkipped++;
+                      successCount++;
+                      return;
+                    } else if (duplicateStrategy === 'update') {
+                      // Update existing patient
+                      patient = await tx.patient.update({
+                        where: { id: duplicateCheck.existingPatient.id },
+                        data: {
+                          age: patientData.age || duplicateCheck.existingPatient.age,
+                          gender: patientData.gender || duplicateCheck.existingPatient.gender,
+                          bloodGroup: patientData.bloodGroup || duplicateCheck.existingPatient.bloodGroup,
+                          address: patientData.address || duplicateCheck.existingPatient.address,
+                          allergies: patientData.allergies || duplicateCheck.existingPatient.allergies,
+                          chronicConditions: patientData.chronicConditions || duplicateCheck.existingPatient.chronicConditions,
+                        },
+                      });
+                      duplicatesUpdated++;
+                    }
+                  } else {
+                    // Create new patient — use a pre-generated ID from the pool
+                    // to avoid the MAX() race condition inside a transaction.
+                    patientData.patientId = idPool.shift() ?? await importService.generateUniquePatientId(tx);
+                    
+                    patient = await tx.patient.create({
+                      data: patientData,
+                    });
+                    patientsCreated++;
+                  }
+                  
+                  // Create visit if visit data exists
+                  if (visitData && patient) {
+                    await tx.visit.create({
+                      data: {
+                        ...visitData,
+                        patientId: patient.id,
+                      },
+                    });
+                    visitsCreated++;
+                  }
+                  
+                  successCount++;
+                }, {
+                  timeout: 10000, // 10 second timeout per single-row transaction
+                });
+              } catch (err: any) {
+                failedCount++;
+                let errorMessage = err.message || 'Unknown error';
+                
+                // Log detailed error for debugging
+                console.error(`Row ${rowIndex + 2} error:`, {
+                  message: err.message,
+                  code: err.code,
+                  meta: err.meta,
+                });
+                
+                // User-friendly error messages
+                if (err.code === 'P2002') {
+                  const target = err.meta?.target || [];
+                  if (target.includes('patientId')) {
+                    errorMessage = 'Duplicate patient ID';
+                  } else if (target.includes('contact')) {
+                    errorMessage = 'Duplicate contact number';
+                  } else {
+                    errorMessage = 'Duplicate record detected';
+                  }
+                } else if (err.code === 'P2003') {
+                  errorMessage = 'Invalid reference data';
+                } else if (errorMessage.includes('Unique constraint')) {
+                  errorMessage = 'Duplicate patient ID detected';
+                } else if (errorMessage.includes('Foreign key constraint')) {
+                  errorMessage = 'Invalid reference data';
+                } else if (errorMessage.includes('Invalid')) {
+                  errorMessage = `Invalid data: ${errorMessage}`;
                 }
-              }, {
-                timeout: 30000, // 30 second timeout per batch
-              });
-            } catch (batchError) {
-              // If batch fails, log it but continue with next batch
-              console.error(`Batch ${i + 1} failed:`, batchError);
-              failedCount += batch.length;
-              errors.push({
-                row: i * batchSize + 2,
-                error: `Batch processing failed: ${(batchError as Error).message}`,
-              });
+                
+                errors.push({
+                  row: rowIndex + 2,
+                  error: errorMessage,
+                });
+              }
             }
             
             // Send progress update
@@ -237,8 +229,10 @@ export async function POST(request: NextRequest) {
           
           controller.close();
         } catch (err) {
-          const errorMessage = `data: ${JSON.stringify({ 
-            error: (err as Error).message 
+          // FIX #3: Log full error server-side, send only a safe message in the stream
+          logger.error('Import stream error', err);
+          const errorMessage = `data: ${JSON.stringify({
+            error: 'Import failed due to an internal error. Please try again.',
           })}\n\n`;
           controller.enqueue(encoder.encode(errorMessage));
           controller.close();
@@ -257,10 +251,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    activeImports.delete(userId);
-    console.error('Import error:', error);
+    activeImports.delete(user!.userId);
+    // FIX #3: Log full error server-side, send only a safe message to client
+    logger.error('Import execute failed', error);
     return new Response(
-      JSON.stringify({ error: (error as Error).message }),
+      JSON.stringify({ error: 'Import failed. Please try again.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

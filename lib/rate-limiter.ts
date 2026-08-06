@@ -1,13 +1,9 @@
 /**
- * In-memory rate limiter
- * 
- * BETA SECURITY DECISION: In-memory rate limiting (resets on deployment)
- * REASON: Avoid Redis infrastructure complexity during MVP
- * RISK: Rate limits reset on every Vercel deployment (ineffective against persistent attacks)
- * IMPACT: Acceptable for beta with manual monitoring, NOT acceptable for production
- * MIGRATION PATH: Replace with Redis-based rate limiter post-funding
- * ESTIMATED EFFORT: 1-2 days (add Redis, update all rate limit calls)
- * TODO POST-FUNDING: Implement Redis-based rate limiter with Upstash
+ * In-memory rate limiter (used internally as fallback by redis-rate-limiter.ts)
+ *
+ * NOTE: This module no longer exports RATE_LIMITS. The single canonical definition
+ * lives in redis-rate-limiter.ts. All API routes that import RATE_LIMITS should
+ * import from '@/lib/redis-rate-limiter' to avoid the two-definition confusion.
  */
 
 interface RateLimitEntry {
@@ -110,14 +106,7 @@ class RateLimiter {
 
 export const rateLimiter = new RateLimiter();
 
-// Predefined rate limit configurations
-export const RATE_LIMITS = {
-  // Auth endpoints: 5 requests per 15 minutes
-  AUTH: { limit: 5, windowMs: 15 * 60 * 1000 },
-  // API endpoints: 100 requests per minute
-  API: { limit: 100, windowMs: 60 * 1000 },
-  // Strict endpoints: 10 requests per minute
-  STRICT: { limit: 10, windowMs: 60 * 1000 },
-  // File upload: 20 requests per hour
-  UPLOAD: { limit: 20, windowMs: 60 * 60 * 1000 },
-};
+// FIX: RATE_LIMITS is no longer duplicated here.
+// Import RATE_LIMITS from '@/lib/redis-rate-limiter' everywhere.
+// Re-exported here only for backward compatibility with existing imports.
+export { RATE_LIMITS } from './redis-rate-limiter';

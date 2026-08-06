@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from './auth';
+import prisma from './prisma';
 
 /**
- * Middleware to protect API routes
- * Verifies JWT token from cookies
- * Returns user info if valid, or 401 error if invalid
+ * Middleware to protect API routes.
+ * Verifies JWT token from cookies AND checks that the user is still active
+ * in the database.
+ *
+ * FIX #2: The previous version only verified the JWT signature. A deactivated
+ * user's token remained valid for up to 7 days after being disabled.
+ * Now we always check isActive against the database so disabling a user
+ * takes effect immediately on the next request.
  */
 export async function requireAuth(request: NextRequest) {
   // Get token from cookies
@@ -13,29 +19,56 @@ export async function requireAuth(request: NextRequest) {
   if (!token) {
     return {
       error: NextResponse.json(
-        { error: 'Unauthorized - No token provided' },
+        { error: 'Unauthorized' },
         { status: 401 }
       ),
       user: null,
     };
   }
 
-  // Verify token
+  // Verify JWT signature
   const decoded = verifyToken(token);
 
   if (!decoded) {
     return {
       error: NextResponse.json(
-        { error: 'Unauthorized - Invalid token' },
+        { error: 'Unauthorized' },
         { status: 401 }
       ),
       user: null,
     };
   }
 
-  // Token is valid, return user info
+  // Check user still exists and is active in the database.
+  // This ensures a disabled account is blocked immediately — not after
+  // the token expires in 7 days.
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.userId },
+    select: { id: true, email: true, role: true, isActive: true },
+  });
+
+  if (!user) {
+    return {
+      error: NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      ),
+      user: null,
+    };
+  }
+
+  if (!user.isActive) {
+    return {
+      error: NextResponse.json(
+        { error: 'Account is inactive' },
+        { status: 403 }
+      ),
+      user: null,
+    };
+  }
+
   return {
     error: null,
-    user: decoded,
+    user: { userId: user.id, email: user.email, role: user.role },
   };
 }

@@ -13,17 +13,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const publicPaths = ['/auth/', '/'];
   const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path));
 
-  // If on public pages, always show content immediately
+  // FIX: useEffect must be called unconditionally (Rules of Hooks).
+  // The redirect only fires when we're on a protected path AND not authenticated.
+  useEffect(() => {
+    if (!isPublicPath && !loading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isPublicPath, loading, isAuthenticated, router]);
+
+  // Public pages — always render immediately
   if (isPublicPath) {
     return <>{children}</>;
   }
-
-  // Redirect to login if not authenticated after loading
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.push('/auth/login');
-    }
-  }, [loading, isAuthenticated, router]);
 
   // Show loading state while checking auth OR if not authenticated
   // This prevents flash of content before redirect

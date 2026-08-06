@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,10 +51,14 @@ export async function GET(req: NextRequest) {
       where: whereClause,
       include: {
         visits: {
+          // Only include visits matching the filter, capped to avoid OOM
+          where: Object.keys(visitFilter).length > 0 ? visitFilter : undefined,
           orderBy: { visitDate: 'desc' },
+          take: 50, // max 50 visits per patient in export
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 5000, // FIX: cap at 5,000 patients per export request
     });
 
     // Flatten data for Excel (one row per visit)
@@ -104,7 +109,11 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Failed to export:', error);
-    return new NextResponse(JSON.stringify({ message: 'Failed to export data' }), { status: 500 });
+    // FIX #3: Log full error server-side, send only a safe message to client
+    logger.error('Patient export failed', error);
+    return new NextResponse(
+      JSON.stringify({ message: 'Export failed. Please try again.' }),
+      { status: 500 }
+    );
   }
 }

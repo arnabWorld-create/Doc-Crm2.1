@@ -17,7 +17,7 @@ interface PatientAnalytics {
   averageFeePerVisit: number;
   firstVisitDate: string;
   lastVisitDate: string;
-  visitFrequency: 'High' | 'Medium' | 'Low'; // Based on visits per month
+  visitFrequency: 'High' | 'Medium' | 'Low';
   paymentMethods: { [key: string]: number };
   monthlyVisits: { month: string; visits: number; fees: number }[];
   recentVisits: {
@@ -29,6 +29,22 @@ interface PatientAnalytics {
   }[];
 }
 
+// ------------------------------------------------------------------
+// FIX: The previous real-time fallback did prisma.patient.findMany()
+// with NO limit — loading ALL patients + all their visits/payments/
+// invoices into Node.js memory. At 1,000 patients it was slow, at
+// 10,000 it would timeout, at 100,000 it would crash the server.
+//
+// New strategy:
+//   1. Always try the 6-hour cache first (fast, no DB load at all).
+//   2. If cache is stale/missing AND a time filter is requested,
+//      run an aggregation query directly in PostgreSQL — no data
+//      ever leaves the DB into Node.js memory.
+//   3. The nightly cron (calculate-analytics) rebuilds the full
+//      "all time" cache in batches of 50. This route never does
+//      that heavy work itself anymore.
+// ------------------------------------------------------------------
+
 // GET patient visit analytics
 export const GET = withMiddleware(
   async (request: NextRequest) => {
@@ -37,86 +53,42 @@ export const GET = withMiddleware(
       if (error) throw error;
 
       const { searchParams } = new URL(request.url);
-      const page = parseInt(searchParams.get('page') || '1');
-      const limit = parseInt(searchParams.get('limit') || '50');
-      const sortBy = searchParams.get('sortBy') || 'totalFeesGenerated';
-      const sortOrder = searchParams.get('sortOrder') || 'desc';
-      const minVisits = parseInt(searchParams.get('minVisits') || '1');
-      const timeRange = searchParams.get('timeRange') || 'all';
-      const skip = (page - 1) * limit;
+      const page       = Math.max(1, parseInt(searchParams.get('page')      || '1'));
+      const limit      = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '50')));
+      const sortBy     = searchParams.get('sortBy')    || 'totalFeesGenerated';
+      const sortOrder  = searchParams.get('sortOrder') || 'desc';
+      const minVisits  = Math.max(1, parseInt(searchParams.get('minVisits') || '1'));
+      const timeRange  = searchParams.get('timeRange') || 'all';
+      const skip       = (page - 1) * limit;
 
-      // Try to get from cache first (only for 'all' time range with default filters)
+      // ── Step 1: Try cache (covers the "all time, default filters" case) ──
       const useCache = timeRange === 'all' && minVisits === 1;
-      
+
       if (useCache) {
         const cached = await prisma.analyticsCache.findUnique({
           where: { cacheKey: 'patient_analytics_all' },
         });
-        
+
         if (cached && new Date(cached.expiresAt) > new Date()) {
-          // Cache hit - return cached data with filtering/sorting/pagination
           const cacheData = JSON.parse(cached.data);
           let analyticsData = cacheData.data as PatientAnalytics[];
-          
-          // Apply sorting
-          analyticsData.sort((a, b) => {
-            let aValue: any, bValue: any;
-            
-            switch (sortBy) {
-              case 'totalVisits':
-                aValue = a.totalVisits;
-                bValue = b.totalVisits;
-                break;
-              case 'totalFeesGenerated':
-                aValue = a.totalFeesGenerated;
-                bValue = b.totalFeesGenerated;
-                break;
-              case 'name':
-                aValue = a.name.toLowerCase();
-                bValue = b.name.toLowerCase();
-                break;
-              case 'averageFeePerVisit':
-                aValue = a.averageFeePerVisit;
-                bValue = b.averageFeePerVisit;
-                break;
-              default:
-                aValue = a.totalFeesGenerated;
-                bValue = b.totalFeesGenerated;
-            }
 
-            if (sortOrder === 'desc') {
-              return bValue > aValue ? 1 : bValue < aValue ? -1 : 0;
-            } else {
-              return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
-            }
-          });
-          
-          // Apply pagination
+          analyticsData = sortAnalytics(analyticsData, sortBy, sortOrder);
+
+          const total        = analyticsData.length;
           const paginatedData = analyticsData.slice(skip, skip + limit);
-          const total = analyticsData.length;
-          
+
           logger.info('Analytics served from cache', {
             calculatedAt: cached.calculatedAt,
-            age: `${Math.round((Date.now() - new Date(cached.calculatedAt).getTime()) / 1000)}s`,
-            cached: true,
+            ageSeconds: Math.round((Date.now() - new Date(cached.calculatedAt).getTime()) / 1000),
           });
-          
+
           return successResponse(
             {
               data: paginatedData,
               summary: cacheData.summary,
-              pagination: {
-                total,
-                page,
-                limit,
-                pages: Math.ceil(total / limit),
-              },
-              filters: {
-                timeRange,
-                sortBy,
-                sortOrder,
-                minVisits,
-              },
+              pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+              filters: { timeRange, sortBy, sortOrder, minVisits },
               cached: true,
               calculatedAt: cached.calculatedAt,
             },
@@ -126,227 +98,177 @@ export const GET = withMiddleware(
         }
       }
 
-      // Calculate date filter based on time range
-      let dateFilter: Date | undefined;
-      const now = new Date();
-      switch (timeRange) {
-        case '30d':
-          dateFilter = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        case '90d':
-          dateFilter = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-          break;
-        case '6m':
-          dateFilter = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
-          break;
-        case '1y':
-          dateFilter = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-          break;
-        default:
-          dateFilter = undefined;
-      }
+      // ── Step 2: No cache or time-filtered request ──
+      // Push ALL the aggregation work into PostgreSQL.
+      // We never pull raw visit rows into Node.js — the DB does the math.
+      const dateFilter = resolveDateFilter(timeRange);
+      const dateCondition = dateFilter
+        ? `AND v."visitDate" >= '${dateFilter.toISOString()}'`
+        : '';
+      const invoiceDateCondition = dateFilter
+        ? `AND i."createdAt" >= '${dateFilter.toISOString()}'`
+        : '';
 
-      // Fetch patients with their visits and payment data
-      const patients = await prisma.patient.findMany({
-        include: {
-          visits: {
-            where: dateFilter ? { visitDate: { gte: dateFilter } } : undefined,
-            select: {
-              id: true,
-              visitDate: true,
-              visitType: true,
-              notes: true,
-              paidBy: true,
-              fees: {
-                select: {
-                  id: true,
-                  serviceName: true,
-                  amount: true,
-                  quantity: true,
-                  discount: true,
-                  total: true,
-                }
-              }
-            },
-            orderBy: { visitDate: 'desc' },
-          },
-          payments: {
-            where: dateFilter ? { createdAt: { gte: dateFilter } } : undefined,
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              paymentMethod: true,
-              createdAt: true,
-            },
-          },
-          invoices: {
-            where: dateFilter ? { createdAt: { gte: dateFilter } } : undefined,
-            select: {
-              id: true,
-              amount: true,
-              status: true,
-              createdAt: true,
-            },
-          },
-        },
-      });
-
-      // Process analytics for each patient
-      const analyticsData: PatientAnalytics[] = patients
-        .map(patient => {
-          const visits = patient.visits;
-          const payments = patient.payments;
-          const invoices = patient.invoices;
-
-          // Skip patients with no visits or below minimum visits threshold
-          if (visits.length < minVisits) return null;
-
-          // Calculate total fees from VisitFee table
-          let totalFeesFromVisits = 0;
-          const paymentMethodCounts: { [key: string]: number } = {};
-          
-          visits.forEach(visit => {
-            // Sum fees from VisitFee table
-            const visitTotal = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
-            totalFeesFromVisits += visitTotal;
-            
-            if (visit.paidBy) {
-              paymentMethodCounts[visit.paidBy] = (paymentMethodCounts[visit.paidBy] || 0) + 1;
-            }
-          });
-
-          // Also include invoice amounts (in case some fees are tracked via invoices)
-          const totalFeesFromInvoices = invoices
-            .filter(inv => inv.status === 'paid')
-            .reduce((sum, inv) => sum + inv.amount, 0);
-
-          // Use the higher of the two (visits fees or invoice fees) to avoid double counting
-          const totalFeesGenerated = Math.max(totalFeesFromVisits, totalFeesFromInvoices);
-
-          // Calculate visit frequency (visits per month)
-          const firstVisit = visits.length > 0 ? new Date(Math.min(...visits.map(v => new Date(v.visitDate).getTime()))) : new Date();
-          const lastVisit = visits.length > 0 ? new Date(Math.max(...visits.map(v => new Date(v.visitDate).getTime()))) : new Date();
-          const monthsDiff = Math.max(1, (lastVisit.getTime() - firstVisit.getTime()) / (30 * 24 * 60 * 60 * 1000));
-          const visitsPerMonth = visits.length / monthsDiff;
-          
-          let visitFrequency: 'High' | 'Medium' | 'Low';
-          if (visitsPerMonth >= 2) visitFrequency = 'High';
-          else if (visitsPerMonth >= 0.5) visitFrequency = 'Medium';
-          else visitFrequency = 'Low';
-
-          // Monthly breakdown
-          const monthlyMap = new Map<string, { visits: number; fees: number }>();
-          visits.forEach(visit => {
-            const date = new Date(visit.visitDate);
-            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            
-            const visitFees = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
-            
-            const existing = monthlyMap.get(monthKey) || { visits: 0, fees: 0 };
-            monthlyMap.set(monthKey, {
-              visits: existing.visits + 1,
-              fees: existing.fees + visitFees,
-            });
-          });
-
-          const monthlyVisits = Array.from(monthlyMap.entries())
-            .sort()
-            .slice(-12) // Last 12 months
-            .map(([month, data]) => ({
-              month,
-              visits: data.visits,
-              fees: data.fees,
-            }));
-
-          // Recent visits (last 5)
-          const recentVisits = visits.slice(0, 5).map(visit => {
-            const visitFees = visit.fees.reduce((sum, fee) => sum + fee.total, 0);
-            return {
-              id: visit.id,
-              visitDate: visit.visitDate.toISOString(),
-              visitType: visit.visitType,
-              fees: visitFees,
-              paidBy: visit.paidBy || undefined,
-            };
-          });
-
-          return {
-            id: patient.id,
-            patientId: patient.patientId,
-            name: patient.name,
-            contact: patient.contact || undefined,
-            totalVisits: visits.length,
-            totalFeesGenerated,
-            averageFeePerVisit: visits.length > 0 ? totalFeesGenerated / visits.length : 0,
-            firstVisitDate: firstVisit.toISOString(),
-            lastVisitDate: lastVisit.toISOString(),
-            visitFrequency,
-            paymentMethods: paymentMethodCounts,
-            monthlyVisits,
-            recentVisits,
-          };
-        })
-        .filter((analytics): analytics is NonNullable<typeof analytics> => analytics !== null);
-
-      // Sort the results
-      analyticsData.sort((a, b) => {
-        let aValue: any, bValue: any;
-        
-        switch (sortBy) {
-          case 'totalVisits':
-            aValue = a.totalVisits;
-            bValue = b.totalVisits;
-            break;
-          case 'totalFeesGenerated':
-            aValue = a.totalFeesGenerated;
-            bValue = b.totalFeesGenerated;
-            break;
-          case 'name':
-            aValue = a.name.toLowerCase();
-            bValue = b.name.toLowerCase();
-            break;
-          case 'averageFeePerVisit':
-            aValue = a.averageFeePerVisit;
-            bValue = b.averageFeePerVisit;
-            break;
-          default:
-            aValue = a.totalFeesGenerated;
-            bValue = b.totalFeesGenerated;
-        }
-
-        if (sortOrder === 'desc') {
-          return bValue > aValue ? 1 : bValue < aValue ? -1 : 0;
-        } else {
-          return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
-        }
-      });
-
-      // Apply pagination
-      const paginatedData = analyticsData.slice(skip, skip + limit);
-      const total = analyticsData.length;
-
-      // Calculate summary statistics
-      const summary = {
-        totalPatients: analyticsData.length,
-        totalVisitsAll: analyticsData.reduce((sum, p) => sum + p.totalVisits, 0),
-        totalRevenueAll: analyticsData.reduce((sum, p) => sum + p.totalFeesGenerated, 0),
-        averageVisitsPerPatient: analyticsData.length > 0 ? analyticsData.reduce((sum, p) => sum + p.totalVisits, 0) / analyticsData.length : 0,
-        averageRevenuePerPatient: analyticsData.length > 0 ? analyticsData.reduce((sum, p) => sum + p.totalFeesGenerated, 0) / analyticsData.length : 0,
-        topRevenuePatient: analyticsData.length > 0 ? analyticsData[0] : null,
-        frequencyDistribution: {
-          high: analyticsData.filter(p => p.visitFrequency === 'High').length,
-          medium: analyticsData.filter(p => p.visitFrequency === 'Medium').length,
-          low: analyticsData.filter(p => p.visitFrequency === 'Low').length,
-        },
+      // One aggregation query — safe at any patient count
+      type AggRow = {
+        id: string;
+        patientId: string;
+        name: string;
+        contact: string | null;
+        total_visits: bigint;
+        total_fees: number;
+        first_visit: Date | null;
+        last_visit: Date | null;
+        paid_by_counts: string | null;   // JSON
+        monthly_data: string | null;     // JSON
+        recent_visits: string | null;    // JSON
+        invoice_total: number;
       };
 
-      logger.info('Fetched patient analytics (real-time calculation)', {
+      const rows = await prisma.$queryRawUnsafe<AggRow[]>(`
+        SELECT
+          p.id,
+          p."patientId",
+          p.name,
+          p.contact,
+
+          -- visit counts and dates
+          COUNT(DISTINCT v.id)::bigint        AS total_visits,
+          MIN(v."visitDate")                  AS first_visit,
+          MAX(v."visitDate")                  AS last_visit,
+
+          -- total fees from visit_fees
+          COALESCE(SUM(vf.total), 0)          AS total_fees,
+
+          -- payment method breakdown as JSON
+          (
+            SELECT json_object_agg(paid_by, cnt)
+            FROM (
+              SELECT v2."paidBy" AS paid_by, COUNT(*) AS cnt
+              FROM visits v2
+              WHERE v2."patientId" = p.id
+                AND v2."paidBy" IS NOT NULL
+                ${dateCondition}
+              GROUP BY v2."paidBy"
+            ) pm
+          )                                   AS paid_by_counts,
+
+          -- last 12 months monthly breakdown as JSON
+          (
+            SELECT json_agg(monthly ORDER BY month)
+            FROM (
+              SELECT
+                to_char(v3."visitDate", 'YYYY-MM') AS month,
+                COUNT(*)                           AS visits,
+                COALESCE(SUM(vf3.total), 0)        AS fees
+              FROM visits v3
+              LEFT JOIN visit_fees vf3 ON vf3."visitId" = v3.id
+              WHERE v3."patientId" = p.id
+                ${dateCondition}
+              GROUP BY to_char(v3."visitDate", 'YYYY-MM')
+              ORDER BY month DESC
+              LIMIT 12
+            ) monthly
+          )                                   AS monthly_data,
+
+          -- last 5 visits as JSON
+          (
+            SELECT json_agg(rv ORDER BY rv."visitDate" DESC)
+            FROM (
+              SELECT
+                v4.id,
+                v4."visitDate",
+                v4."visitType",
+                v4."paidBy",
+                COALESCE(SUM(vf4.total), 0) AS fees
+              FROM visits v4
+              LEFT JOIN visit_fees vf4 ON vf4."visitId" = v4.id
+              WHERE v4."patientId" = p.id
+                ${dateCondition}
+              GROUP BY v4.id, v4."visitDate", v4."visitType", v4."paidBy"
+              ORDER BY v4."visitDate" DESC
+              LIMIT 5
+            ) rv
+          )                                   AS recent_visits,
+
+          -- paid invoice total (for max() comparison)
+          COALESCE((
+            SELECT SUM(i.amount)
+            FROM invoices i
+            WHERE i."patientId" = p.id
+              AND i.status = 'paid'
+              ${invoiceDateCondition}
+          ), 0)                               AS invoice_total
+
+        FROM patients p
+        LEFT JOIN visits v   ON v."patientId" = p.id ${dateCondition}
+        LEFT JOIN visit_fees vf ON vf."visitId" = v.id
+        GROUP BY p.id
+        HAVING COUNT(DISTINCT v.id) >= ${minVisits}
+      `);
+
+      // Shape DB rows into analytics objects — pure number crunching, no extra queries
+      const analyticsData: PatientAnalytics[] = rows.map(row => {
+        const totalVisits        = Number(row.total_visits);
+        const totalFeesFromVisits = Number(row.total_fees);
+        const totalFeesFromInvoices = Number(row.invoice_total);
+        const totalFeesGenerated = Math.max(totalFeesFromVisits, totalFeesFromInvoices);
+
+        const firstVisit = row.first_visit ? new Date(row.first_visit) : new Date();
+        const lastVisit  = row.last_visit  ? new Date(row.last_visit)  : new Date();
+        const monthsDiff = Math.max(
+          1,
+          (lastVisit.getTime() - firstVisit.getTime()) / (30 * 24 * 60 * 60 * 1000)
+        );
+        const visitsPerMonth = totalVisits / monthsDiff;
+
+        let visitFrequency: 'High' | 'Medium' | 'Low';
+        if (visitsPerMonth >= 2)   visitFrequency = 'High';
+        else if (visitsPerMonth >= 0.5) visitFrequency = 'Medium';
+        else                       visitFrequency = 'Low';
+
+        const paymentMethods: { [key: string]: number } =
+          row.paid_by_counts ? JSON.parse(row.paid_by_counts) : {};
+
+        const monthlyVisits: { month: string; visits: number; fees: number }[] =
+          row.monthly_data ? JSON.parse(row.monthly_data) : [];
+
+        const recentVisits = row.recent_visits
+          ? (JSON.parse(row.recent_visits) as any[]).map(v => ({
+              id:        v.id,
+              visitDate: new Date(v.visitDate).toISOString(),
+              visitType: v.visitType,
+              fees:      Number(v.fees),
+              paidBy:    v.paidBy ?? undefined,
+            }))
+          : [];
+
+        return {
+          id:                   row.id,
+          patientId:            row.patientId,
+          name:                 row.name,
+          contact:              row.contact,
+          totalVisits,
+          totalFeesGenerated,
+          averageFeePerVisit:   totalVisits > 0 ? totalFeesGenerated / totalVisits : 0,
+          firstVisitDate:       firstVisit.toISOString(),
+          lastVisitDate:        lastVisit.toISOString(),
+          visitFrequency,
+          paymentMethods,
+          monthlyVisits,
+          recentVisits,
+        };
+      });
+
+      const sorted       = sortAnalytics(analyticsData, sortBy, sortOrder);
+      const total        = sorted.length;
+      const paginatedData = sorted.slice(skip, skip + limit);
+
+      const summary = buildSummary(sorted);
+
+      logger.info('Analytics calculated via aggregation query', {
         totalPatients: total,
         timeRange,
-        sortBy,
-        sortOrder,
-        minVisits,
         cached: false,
       });
 
@@ -354,29 +276,72 @@ export const GET = withMiddleware(
         {
           data: paginatedData,
           summary,
-          pagination: {
-            total,
-            page,
-            limit,
-            pages: Math.ceil(total / limit),
-          },
-          filters: {
-            timeRange,
-            sortBy,
-            sortOrder,
-            minVisits,
-          },
+          pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+          filters: { timeRange, sortBy, sortOrder, minVisits },
           cached: false,
         },
         200,
         request
       );
     } catch (error) {
-      logger.error('Patient analytics error', { error: error instanceof Error ? error.message : 'Unknown error' });
+      logger.error('Patient analytics error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       throw error;
     }
   },
-  {
-    rateLimit: RATE_LIMITS.API,
-  }
+  { rateLimit: RATE_LIMITS.API }
 );
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function resolveDateFilter(timeRange: string): Date | undefined {
+  const now = new Date();
+  switch (timeRange) {
+    case '30d': return new Date(now.getTime() - 30  * 24 * 60 * 60 * 1000);
+    case '90d': return new Date(now.getTime() - 90  * 24 * 60 * 60 * 1000);
+    case '6m':  return new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+    case '1y':  return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    default:    return undefined;
+  }
+}
+
+function sortAnalytics(
+  data: PatientAnalytics[],
+  sortBy: string,
+  sortOrder: string
+): PatientAnalytics[] {
+  return [...data].sort((a, b) => {
+    let aVal: string | number;
+    let bVal: string | number;
+
+    switch (sortBy) {
+      case 'totalVisits':        aVal = a.totalVisits;        bVal = b.totalVisits;        break;
+      case 'name':               aVal = a.name.toLowerCase(); bVal = b.name.toLowerCase(); break;
+      case 'averageFeePerVisit': aVal = a.averageFeePerVisit; bVal = b.averageFeePerVisit; break;
+      default:                   aVal = a.totalFeesGenerated; bVal = b.totalFeesGenerated; break;
+    }
+
+    if (sortOrder === 'asc') return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+    return bVal > aVal ? 1 : bVal < aVal ? -1 : 0;
+  });
+}
+
+function buildSummary(data: PatientAnalytics[]) {
+  const total = data.length;
+  const totalVisits  = data.reduce((s, p) => s + p.totalVisits, 0);
+  const totalRevenue = data.reduce((s, p) => s + p.totalFeesGenerated, 0);
+  return {
+    totalPatients:           total,
+    totalVisitsAll:          totalVisits,
+    totalRevenueAll:         totalRevenue,
+    averageVisitsPerPatient: total > 0 ? totalVisits  / total : 0,
+    averageRevenuePerPatient:total > 0 ? totalRevenue / total : 0,
+    topRevenuePatient:       data[0] ?? null,
+    frequencyDistribution: {
+      high:   data.filter(p => p.visitFrequency === 'High').length,
+      medium: data.filter(p => p.visitFrequency === 'Medium').length,
+      low:    data.filter(p => p.visitFrequency === 'Low').length,
+    },
+  };
+}

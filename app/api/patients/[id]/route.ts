@@ -4,7 +4,8 @@ import { requirePermission } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
-// GET single patient with all visits
+// GET single patient with paginated visit history
+// Query params: ?visitPage=1&visitLimit=20
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -13,14 +14,15 @@ export async function GET(
   if (error) return error;
 
   try {
+    // FIX: Added pagination for visit history to prevent returning unbounded
+    // result sets for patients with many visits.
+    const { searchParams } = new URL(req.url);
+    const visitPage = Math.max(1, parseInt(searchParams.get('visitPage') || '1'));
+    const visitLimit = Math.min(100, Math.max(1, parseInt(searchParams.get('visitLimit') || '20')));
+    const visitSkip = (visitPage - 1) * visitLimit;
+
     const patient = await prisma.patient.findUnique({
       where: { id: params.id },
-      include: {
-        visits: {
-          orderBy: { visitDate: 'desc' },
-          include: { medications: true },
-        },
-      },
     });
 
     if (!patient) {
@@ -30,7 +32,28 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(patient);
+    // Fetch visits and total count in parallel
+    const [visits, totalVisits] = await Promise.all([
+      prisma.visit.findMany({
+        where: { patientId: params.id },
+        orderBy: { visitDate: 'desc' },
+        skip: visitSkip,
+        take: visitLimit,
+        include: { medications: true, fees: true },
+      }),
+      prisma.visit.count({ where: { patientId: params.id } }),
+    ]);
+
+    return NextResponse.json({
+      ...patient,
+      visits,
+      visitPagination: {
+        total: totalVisits,
+        page: visitPage,
+        limit: visitLimit,
+        pages: Math.ceil(totalVisits / visitLimit),
+      },
+    });
   } catch (error) {
     console.error('Failed to fetch patient:', error);
     return NextResponse.json(

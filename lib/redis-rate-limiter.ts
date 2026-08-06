@@ -1,17 +1,30 @@
 import { Redis } from '@upstash/redis';
+import { logger } from './logger';
 
-// Initialize Redis client (will be undefined if env vars not set)
+// FIX: In production, Redis is required for effective rate limiting.
+// In-memory rate limiting resets on every serverless cold start, making it
+// useless against sustained attacks. Warn loudly at startup if Redis is missing.
 let redis: Redis | null = null;
 
-try {
-  if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  try {
     redis = new Redis({
       url: process.env.UPSTASH_REDIS_REST_URL,
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
     });
+  } catch (error) {
+    logger.error('Redis initialization failed — falling back to in-memory rate limiting', error);
   }
-} catch (error) {
-  console.warn('Redis initialization failed, falling back to in-memory rate limiting:', error);
+} else if (process.env.NODE_ENV === 'production') {
+  // In production this is a real operational concern, not just a warning
+  logger.error(
+    'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are not set. ' +
+    'Rate limiting will use in-memory storage which resets on every cold start. ' +
+    'This makes rate limiting ineffective against sustained attacks in production. ' +
+    'Set up Upstash Redis: https://upstash.com'
+  );
+} else {
+  logger.warn('Redis not configured — using in-memory rate limiting (development only)');
 }
 
 interface RateLimitResult {

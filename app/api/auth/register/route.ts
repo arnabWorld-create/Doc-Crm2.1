@@ -6,19 +6,30 @@ import { withMiddleware, successResponse } from '@/lib/middleware';
 import { ApiErrors } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import { RATE_LIMITS } from '@/lib/rate-limiter';
+import { requireRole } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
 // Validation schema
 const registerSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  // FIX: Increased minimum password length from 6 to 8 (medical data standard)
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   name: z.string().min(1, 'Name is required'),
+  // Only admin can set a role; defaults to 'staff' for safety
+  role: z.enum(['doctor', 'admin', 'staff']).optional().default('staff'),
 });
 
 export const POST = withMiddleware(
   async (request: NextRequest, data) => {
-    const { email, password, name } = data;
+    // FIX: Registration is now admin-only.
+    // This prevents arbitrary users from creating accounts and accessing patient data.
+    const { error: authError } = await requireRole(request, ['admin']);
+    if (authError) {
+      throw ApiErrors.forbidden('Only administrators can create new user accounts');
+    }
+
+    const { email, password, name, role } = data;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -39,17 +50,15 @@ export const POST = withMiddleware(
         email,
         password: hashedPassword,
         name,
-        role: 'doctor',
+        role,
       },
     });
 
-    // Generate token
-    const token = generateToken(user.id, user.email);
+    logger.info('User registered successfully by admin', { userId: user.id, email, role });
 
-    // Create response
-    const response = successResponse(
+    return successResponse(
       {
-        message: 'User registered successfully',
+        message: 'User created successfully',
         user: {
           id: user.id,
           email: user.email,
@@ -57,26 +66,10 @@ export const POST = withMiddleware(
           role: user.role,
           isActive: user.isActive,
         },
-        token,
       },
       201,
       request
     );
-
-    // Set cookie on response
-    response.cookies.set({
-      name: 'auth-token',
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: '/',
-    });
-
-    logger.info('User registered successfully', { userId: user.id, email });
-
-    return response;
   },
   {
     rateLimit: RATE_LIMITS.AUTH,
