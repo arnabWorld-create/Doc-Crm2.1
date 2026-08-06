@@ -4,7 +4,6 @@
  */
 
 import * as XLSX from 'xlsx';
-import { generatePatientId } from './patientUtils';
 
 export interface ParsedData {
   data: any[];
@@ -259,72 +258,220 @@ export class ImportService {
   }
   
   /**
-   * Auto-detect column mapping based on common patterns
+   * Auto-detect column mapping based on common patterns.
+   * Patterns are intentionally broad to handle real-world Excel/CSV exports
+   * from various clinic management and data-entry tools.
    */
   autoMapColumns(columns: string[]): ColumnMapping {
     const mapping: ColumnMapping = {};
-    
-    // Define patterns for each field
-    const patterns: Record<string, RegExp> = {
-      // Patient fields
-      name: /^(name|patient.*name|full.*name|patient)$/i,
-      patientId: /^(patient.*id|patientid|patient_id)$/i,
-      age: /^(age|patient.*age|years)$/i,
-      gender: /^(gender|sex)$/i,
-      contact: /^(contact|phone|mobile|number|cell|telephone)$/i,
-      bloodGroup: /^(blood.*group|blood.*type|bg|blood)$/i,
-      address: /^(address|location|city|residence)$/i,
-      allergies: /^(allerg|allergies)$/i,
-      chronicConditions: /^(chronic|medical.*history|conditions|diseases)$/i,
-      
-      // Visit fields
-      visitDate: /^(visit.*date|date.*visit|consultation.*date|date)$/i,
-      visitType: /^(visit.*type|type|consultation.*type)$/i,
-      chiefComplaint: /^(chief.*complaint|complaint|presenting.*complaint|symptoms)$/i,
-      diagnosis: /^(diagnosis|diagnosed|condition)$/i,
-      treatment: /^(treatment|plan|management)$/i,
-      medicines: /^(medicine|medication|drugs|prescription|rx)$/i,
-      signs: /^(signs|examination|physical.*exam|findings)$/i,
-      investigations: /^(investigation|tests|lab.*tests|reports)$/i,
-      notes: /^(notes|remarks|comments|observations)$/i,
-      followUpDate: /^(follow.*up|followup|next.*visit|review.*date)$/i,
-      
-      // Vitals
-      bpSystolic: /^(bp.*systolic|systolic|sbp)$/i,
-      bpDiastolic: /^(bp.*diastolic|diastolic|dbp)$/i,
-      bloodPressure: /^(blood.*pressure|bp)$/i,
-      temp: /^(temp|temperature|fever)$/i,
-      pulse: /^(pulse|heart.*rate|hr)$/i,
-      spo2: /^(spo2|oxygen|o2.*sat)$/i,
-      weight: /^(weight|wt)$/i,
-      rbs: /^(rbs|blood.*sugar|glucose|sugar)$/i,
+
+    // Each entry: field name → array of regex patterns (tried in order)
+    // A column matches if ANY pattern matches (case-insensitive, trimmed)
+    const patterns: Record<string, RegExp[]> = {
+      // ── Patient fields ────────────────────────────────────────────────
+      name: [
+        /^(name|patient\s*name|full\s*name|patient|pt\.?\s*name|p\.?\s*name)$/i,
+        /patient.*name/i,
+        /full.*name/i,
+      ],
+      patientId: [
+        /^(patient\s*id|patientid|patient_id|pt\s*id|pid|mrn|uhid|reg\.?\s*no\.?)$/i,
+        /patient.*id/i,
+        /\buhid\b/i,
+        /\bmrn\b/i,
+      ],
+      age: [
+        /^(age|years?|patient\s*age|pt\.?\s*age|age\s*\(years?\))$/i,
+        /^age/i,
+      ],
+      gender: [
+        /^(gender|sex|m\/f|male.*female)$/i,
+      ],
+      contact: [
+        /^(contact|phone|mobile|cell|telephone|mob\.?|ph\.?|contact\s*no\.?|phone\s*no\.?|mobile\s*no\.?)$/i,
+        /mobile.*number/i,
+        /phone.*number/i,
+        /contact.*number/i,
+      ],
+      bloodGroup: [
+        /^(blood\s*group|blood\s*type|b\.?\s*g\.?|bg|blood\s*grp\.?)$/i,
+        /blood.*group/i,
+        /blood.*type/i,
+      ],
+      address: [
+        /^(address|addr\.?|location|city|residence|village|area|locality)$/i,
+        /patient.*address/i,
+      ],
+      allergies: [
+        /^(allerg(y|ies)?|known\s*allerg(y|ies)?)$/i,
+        /allerg/i,
+      ],
+      chronicConditions: [
+        /^(chronic|chronic\s*(conditions?|disease?s?|illness(es)?)|medical\s*history|past\s*history|co[\s-]?morbid|comorbid|pmh|past\s*medical|h\/o)$/i,
+        /chronic.*condition/i,
+        /medical.*history/i,
+        /past.*history/i,
+        /\bpmh\b/i,
+      ],
+
+      // ── Visit / Consultation fields ───────────────────────────────────
+      visitDate: [
+        /^(visit\s*date|date\s*of\s*visit|consultation\s*date|date\s*of\s*consultation|opd\s*date|date|visit\s*dt\.?)$/i,
+        /visit.*date/i,
+        /consult.*date/i,
+        /opd.*date/i,
+      ],
+      visitType: [
+        /^(visit\s*type|type\s*of\s*visit|consultation\s*type|opd\s*type|type)$/i,
+        /visit.*type/i,
+      ],
+      chiefComplaint: [
+        /^(chief\s*complaint|chief\s*c\/o|c\/o|complaint|presenting\s*complaint|reason\s*for\s*visit|presenting\s*problem|cc|reason|history|hopi|h\/o\s*present|main\s*complaint)$/i,
+        /chief.*complaint/i,
+        /presenting.*complaint/i,
+        /reason.*visit/i,
+        /\bc\/o\b/i,
+      ],
+      diagnosis: [
+        /^(diagnosis|diagnos(is|es)|dx\.?|provisional\s*diagnosis|final\s*diagnosis|impression|clinical\s*diagnosis|icd|assessment|disease|condition|disorder)$/i,
+        /diagnos/i,
+        /\bdx\b/i,
+        /impression/i,
+        /assessment/i,
+      ],
+      treatment: [
+        /^(treatment|plan|management|treatment\s*plan|management\s*plan|advice|advised|clinical\s*management|therapeutic\s*plan|t\/t|tt)$/i,
+        /treatment.*plan/i,
+        /management.*plan/i,
+        /\bt\/t\b/i,
+      ],
+      medicines: [
+        /^(medicine(s)?|medication(s)?|drug(s)?|prescription|rx\.?|drugs?\s*prescribed|prescribed\s*medicines?|medicines?\s*prescribed|drugs?\/medicine|drug\s*name)$/i,
+        /medicine/i,
+        /medication/i,
+        /prescription/i,
+        /\brx\b/i,
+        /drug.*name/i,
+        /prescribed/i,
+      ],
+      signs: [
+        /^(signs?|symptoms?|s\/s|signs?\s*(and|&)\s*symptoms?|examination|physical\s*exam(ination)?|findings?|clinical\s*findings?|o\/e|on\s*exam)$/i,
+        /signs?.*symptoms?/i,
+        /physical.*exam/i,
+        /clinical.*finding/i,
+        /\bo\/e\b/i,
+      ],
+      investigations: [
+        /^(investigation(s)?|test(s)?|lab\s*test(s)?|laboratory|lab\s*report(s)?|pathology|reports?|investigation\s*reports?|diagnostic(s)?)$/i,
+        /investigation/i,
+        /lab.*test/i,
+        /lab.*report/i,
+      ],
+      notes: [
+        /^(notes?|remark(s)?|comment(s)?|observation(s)?|additional\s*notes?|doctor\s*notes?|clinical\s*notes?|advice\s*notes?|instruction(s)?)$/i,
+        /doctor.*note/i,
+        /clinical.*note/i,
+        /additional.*note/i,
+      ],
+      followUpDate: [
+        /^(follow[\s-]*up(\s*date)?|f\/u(\s*date)?|next\s*visit(\s*date)?|review(\s*date)?|revisit(\s*date)?|next\s*appointment|next\s*consult(ation)?\s*date)$/i,
+        /follow.*up.*date/i,
+        /next.*visit/i,
+        /\bf\/u\b/i,
+      ],
+
+      // ── Vitals ────────────────────────────────────────────────────────
+      bpSystolic: [
+        /^(bp\s*systolic|systolic(\s*bp)?|sbp|sys\.?\s*bp|bp\s*\(s\))$/i,
+        /systolic/i,
+        /\bsbp\b/i,
+      ],
+      bpDiastolic: [
+        /^(bp\s*diastolic|diastolic(\s*bp)?|dbp|dia\.?\s*bp|bp\s*\(d\))$/i,
+        /diastolic/i,
+        /\bdbp\b/i,
+      ],
+      bloodPressure: [
+        /^(blood\s*pressure|bp|b\.p\.?|bp\s*mmhg|bp\s*\(mmhg\)|bp\s*reading|bp\s*\d+\/\d+)$/i,
+        /blood.*pressure/i,
+        /^bp$/i,
+      ],
+      temp: [
+        /^(temp(erature)?|fever|body\s*temp(erature)?|temp\s*(°?[fc])?|temperature\s*(°?[fc])?)$/i,
+        /temperature/i,
+        /\bfever\b/i,
+      ],
+      pulse: [
+        /^(pulse|heart\s*rate|hr|pulse\s*rate|p\/r|beats?\s*per\s*min(ute)?|bpm)$/i,
+        /pulse.*rate/i,
+        /heart.*rate/i,
+        /\bhr\b/i,
+        /\bbpm\b/i,
+      ],
+      spo2: [
+        /^(spo2|spo₂|oxygen\s*sat(uration)?|o2\s*sat(uration)?|oximetry|pulse\s*ox(imetry)?|%\s*spo2|oxygen)$/i,
+        /spo.?2/i,
+        /oxygen.*sat/i,
+        /o2.*sat/i,
+      ],
+      weight: [
+        /^(weight|wt\.?|body\s*weight|wt\s*(kg)?|weight\s*(kg)?)$/i,
+        /body.*weight/i,
+      ],
+      rbs: [
+        /^(rbs|blood\s*sugar|glucose|sugar|random\s*blood\s*sugar|fasting\s*sugar|ppbs|hba1c|blood\s*glucose)$/i,
+        /blood.*sugar/i,
+        /blood.*glucose/i,
+        /\brbs\b/i,
+      ],
     };
-    
-    // Try to match each column
+
     for (const column of columns) {
       const cleanColumn = column.trim();
-      
-      for (const [field, pattern] of Object.entries(patterns)) {
-        if (pattern.test(cleanColumn)) {
-          mapping[cleanColumn] = field;
-          break;
+      if (!cleanColumn) continue;
+
+      let matched = false;
+      for (const [field, patternList] of Object.entries(patterns)) {
+        for (const pattern of patternList) {
+          if (pattern.test(cleanColumn)) {
+            mapping[cleanColumn] = field;
+            matched = true;
+            break;
+          }
         }
+        if (matched) break;
       }
-      
-      // If no match, leave unmapped (will be skipped)
+      // If no match, leave unmapped (user can set manually)
     }
-    
+
     return mapping;
   }
   
   /**
-   * Generate the next patient ID within an import transaction.
-   * Uses a PostgreSQL sequence for O(1) atomic generation.
+   * Generate a single unique patient ID within a transaction.
+   * Useful as a fallback when the pre-allocated pool is exhausted.
    */
   async generateUniquePatientId(prisma: any): Promise<string> {
-    const result = await prisma.$queryRawUnsafe(`SELECT nextval('patient_id_seq') AS nextval`);
-    const nextVal = result[0].nextval;
-    return `FC-${String(nextVal).padStart(3, '0')}`;
+    // Uses the atomic DB sequence created by add_patient_id_sequence.sql migration
+    const result = await prisma.$queryRaw`SELECT nextval('patient_id_seq') AS nextval`;
+    const nextNum = Number(result[0].nextval);
+    return `FC-${String(nextNum).padStart(3, '0')}`;
+  }
+
+  /**
+   * Pre-allocate a block of unique patient IDs before the import starts.
+   * Each call to nextval() is atomic — no two callers ever receive the same number.
+   */
+  async preallocatePatientIds(prismaClient: any, count: number): Promise<string[]> {
+    if (count <= 0) return [];
+    // Call nextval once per ID needed — each is guaranteed unique by the sequence
+    const ids: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const result = await prismaClient.$queryRaw`SELECT nextval('patient_id_seq') AS nextval`;
+      const num = Number(result[0].nextval);
+      ids.push(`FC-${String(num).padStart(3, '0')}`);
+    }
+    return ids;
   }
   
   /**
@@ -445,16 +592,21 @@ export class ImportService {
       }
       
       // Validate vitals ranges (only warnings)
+      // Temperature: accept both °C (30–45) and °F (86–113) ranges
       const temp = this.getMappedValue(row, mapping, 'temp');
       if (temp && temp.toString().trim() !== '') {
         const tempNum = parseFloat(temp);
-        if (!isNaN(tempNum) && (tempNum < 90 || tempNum > 110)) {
-          warnings.push({
-            row: rowNumber,
-            field: 'temp',
-            message: 'Temperature seems unusual (should be 90-110°F)',
-            value: temp,
-          });
+        if (!isNaN(tempNum)) {
+          const inCelsius = tempNum >= 30 && tempNum <= 45;
+          const inFahrenheit = tempNum >= 86 && tempNum <= 113;
+          if (!inCelsius && !inFahrenheit) {
+            warnings.push({
+              row: rowNumber,
+              field: 'temp',
+              message: 'Temperature seems unusual (expected 30–45°C or 86–113°F)',
+              value: temp,
+            });
+          }
         }
       }
       
@@ -498,11 +650,13 @@ export class ImportService {
   }
   
   /**
-   * Map row data to patient and visit objects
+   * Map row data to patient and visit objects.
+   * Note: patientId is intentionally left empty here — the execute route
+   * assigns pre-allocated IDs from the pool to avoid race conditions.
    */
   async mapRowToPatientAndVisit(row: any, mapping: ColumnMapping): Promise<{ patient: any; visit: any | null }> {
     const patient = {
-      patientId: await generatePatientId(), // Now properly awaited
+      patientId: '', // assigned by execute route from pre-allocated pool
       name: this.getMappedValue(row, mapping, 'name')?.toString().trim() || '',
       age: this.parseNumber(this.getMappedValue(row, mapping, 'age')),
       gender: this.normalizeGender(this.getMappedValue(row, mapping, 'gender')),
