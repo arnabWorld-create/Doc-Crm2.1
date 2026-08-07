@@ -70,6 +70,20 @@
   }
 }
 
+/* Sidebar offset — synced by Sidebar.tsx via data-sidebar on body */
+@media (min-width: 768px) {
+  body[data-sidebar="expanded"] #main-content {
+    padding-left: 15rem; /* 240px = w-60 */
+  }
+  body[data-sidebar="collapsed"] #main-content {
+    padding-left: 4rem; /* 64px = w-16 */
+  }
+  /* Default (before JS hydrates) */
+  body:not([data-sidebar]) #main-content {
+    padding-left: 15rem;
+  }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 10px;

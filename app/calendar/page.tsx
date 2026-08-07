@@ -96,12 +96,12 @@ const CalendarPage = async ({ searchParams }: CalendarPageProps) => {
   }));
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-brand-teal mb-1 sm:mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
           Appointment Calendar
         </h1>
-        <p className="text-sm sm:text-base text-gray-600">
+        <p className="text-sm text-gray-500 mt-0.5">
           View consultations and follow-up appointments by date
         </p>
       </div>

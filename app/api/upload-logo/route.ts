@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
 import prisma from '@/lib/prisma';
 import { requirePermission } from '@/lib/rbac';
 import { withMiddleware, successResponse } from '@/lib/middleware';
@@ -9,29 +11,13 @@ import { RATE_LIMITS } from '@/lib/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
-// FIX: Logo uploads now go to Supabase Storage instead of /public/uploads/.
-//
-// The previous implementation:
-//   1. Wrote files to the local filesystem — wiped on every Vercel deployment
-//   2. Served all uploads publicly without authentication via the /public directory
-//   3. Only validated file.type (client-supplied, easily spoofed)
-//
-// This implementation uploads to the 'clinic-assets' Supabase Storage bucket.
-// The bucket should be set to public so the returned URL is directly usable in <img>.
-// If you need private logos, use a signed URL instead of getPublicUrl().
+// Logo uploads go to Supabase Storage when configured,
+// otherwise fall back to local /public/uploads/ for dev environments.
 
 function getSupabaseAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceKey) {
-    throw ApiErrors.internalError(
-      'Supabase storage is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
-    );
-  }
-
-  // Use the service-role key on the server so we can write to storage
-  // regardless of bucket RLS policies.
+  if (!url || !serviceKey) return null;
   return createClient(url, serviceKey, {
     auth: { persistSession: false },
   });
@@ -55,31 +41,45 @@ export const POST = withMiddleware(
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Additional magic-byte check for common image formats
-    // to guard against spoofed file.type values
+    // Additional magic-byte check to guard against spoofed file.type values
     validateImageMagicBytes(buffer, file.name);
 
+    let logoPath: string;
+
     const supabase = getSupabaseAdminClient();
-    const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'clinic-assets';
-    const filename = generateSafeFilename(file.name, 'logo');
-    const storagePath = `logos/${filename}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(storagePath, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
+    if (supabase) {
+      // ── Supabase storage (production) ────────────────────────────────────
+      const bucket = process.env.NEXT_PUBLIC_SUPABASE_BUCKET || 'patient-reports';
+      const filename = generateSafeFilename(file.name, 'logo');
+      const storagePath = `logos/${filename}`;
 
-    if (uploadError) {
-      throw ApiErrors.internalError(`Storage upload failed: ${uploadError.message}`);
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(storagePath, buffer, {
+          contentType: file.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw ApiErrors.internalError(`Storage upload failed: ${uploadError.message}`);
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(storagePath);
+
+      logoPath = publicUrlData.publicUrl;
+    } else {
+      // ── Local filesystem fallback (development) ───────────────────────────
+      const filename = generateSafeFilename(file.name, 'logo');
+      const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+
+      await mkdir(uploadsDir, { recursive: true });
+      await writeFile(path.join(uploadsDir, filename), buffer);
+
+      logoPath = `/uploads/${filename}`;
     }
-
-    const { data: publicUrlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(storagePath);
-
-    const logoPath = publicUrlData.publicUrl;
 
     // Update or create the clinic profile with the new logo URL
     const profile = await prisma.clinicProfile.findFirst();
@@ -110,13 +110,13 @@ export const POST = withMiddleware(
 );
 
 /**
- * Validate image magic bytes (file signature) to catch files with spoofed MIME types.
+ * Validate image magic bytes to catch files with spoofed MIME types.
  * Supports JPEG, PNG, GIF, WebP, and SVG.
  */
 function validateImageMagicBytes(buffer: Buffer, filename: string): void {
   const ext = filename.toLowerCase().split('.').pop();
 
-  // SVG is text-based — skip binary check but verify it looks like XML/SVG
+  // SVG is text-based — verify it looks like XML/SVG
   if (ext === 'svg') {
     const text = buffer.slice(0, 256).toString('utf8');
     if (!text.includes('<svg') && !text.includes('<?xml')) {

@@ -101,8 +101,8 @@ export default function AppointmentDetailPage({ params }: AppointmentDetailPageP
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-brand-teal"></div>
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin rounded-full h-10 w-10 border-4 border-brand-teal border-b-transparent"></div>
       </div>
     );
   }
@@ -114,48 +114,46 @@ export default function AppointmentDetailPage({ params }: AppointmentDetailPageP
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-teal mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
             Appointment Details
           </h1>
-          <p className="text-gray-600">View and manage appointment</p>
+          <p className="text-sm text-gray-500 mt-0.5">View and manage appointment</p>
         </div>
         <Link href="/appointments">
-          <button className="flex items-center px-4 py-2 text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all">
+          <button className="flex items-center px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </button>
         </Link>
       </div>
 
-      {/* Status Badge */}
+      {/* Status + Delete */}
       <div className="flex items-center justify-between">
-        <span className={`px-4 py-2 rounded-lg text-sm font-bold border-2 ${getStatusColor(appointment.status)}`}>
+        <span className={`px-3 py-1.5 rounded-lg text-sm font-semibold border ${getStatusColor(appointment.status)}`}>
           {appointment.status}
         </span>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setDeleteModalOpen(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span>Delete</span>
-          </button>
-        </div>
+        <button
+          onClick={() => setDeleteModalOpen(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-brand-red border border-red-200 rounded-lg hover:bg-brand-red hover:text-white text-sm font-medium transition-all"
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </button>
       </div>
 
       {/* Patient Info */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
-        <div className="flex items-center space-x-3 mb-4 pb-4 border-b-2 border-brand-teal">
-          <div className="p-3 bg-brand-teal rounded-xl">
-            <User className="h-6 w-6 text-white" />
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+          <div className="p-2.5 bg-brand-teal rounded-lg">
+            <User className="h-5 w-5 text-white" />
           </div>
-          <h3 className="text-xl font-bold text-brand-teal">Patient Information</h3>
+          <h3 className="text-base font-bold text-gray-800">Patient Information</h3>
         </div>
 
         {appointment.patient ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-gray-600">Patient Name</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Patient Name</p>
               <Link href={`/patients/${appointment.patient.id}`}>
                 <p className="font-semibold text-brand-teal hover:underline cursor-pointer">
                   {appointment.patient.name}
@@ -163,49 +161,46 @@ export default function AppointmentDetailPage({ params }: AppointmentDetailPageP
               </Link>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Patient ID</p>
-              <p className="font-semibold">{appointment.patient.patientId}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Patient ID</p>
+              <p className="font-semibold text-gray-900">{appointment.patient.patientId}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-600">Age / Gender</p>
-              <p className="font-semibold">
-                {appointment.patient.age} years / {appointment.patient.gender}
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Age / Gender</p>
+              <p className="font-semibold text-gray-900">
+                {appointment.patient.age} yrs · {appointment.patient.gender}
               </p>
             </div>
             {appointment.patient.contact && (
               <div>
-                <p className="text-sm text-gray-600">Contact</p>
-                <p className="font-semibold">{appointment.patient.contact}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Contact</p>
+                <p className="font-semibold text-gray-900">{appointment.patient.contact}</p>
               </div>
             )}
           </div>
         ) : (
           <div>
-            <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-yellow-800 font-medium mb-2">
-                ⚠️ Walk-in Appointment - Patient record not yet created
-              </p>
-              <p className="text-xs text-yellow-700">
-                Create a full patient record when marking this appointment as completed.
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-800 font-medium">
+                ⚠️ Walk-in — patient record not yet created
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-600">Patient Name</p>
-                <p className="font-semibold">{appointment.tempPatientName}</p>
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Patient Name</p>
+                <p className="font-semibold text-gray-900">{appointment.tempPatientName}</p>
               </div>
               {appointment.tempPatientContact && (
                 <div>
-                  <p className="text-sm text-gray-600">Contact</p>
-                  <p className="font-semibold">{appointment.tempPatientContact}</p>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Contact</p>
+                  <p className="font-semibold text-gray-900">{appointment.tempPatientContact}</p>
                 </div>
               )}
             </div>
             <div className="mt-4">
               <Link href={`/patients/new?name=${encodeURIComponent(appointment.tempPatientName)}&contact=${encodeURIComponent(appointment.tempPatientContact || '')}&appointmentId=${appointment.id}`}>
-                <button className="flex items-center space-x-2 px-4 py-2 bg-brand-yellow text-white rounded-lg hover:bg-brand-yellow/90 transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2 bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/30 rounded-lg hover:bg-brand-yellow hover:text-white text-sm font-semibold transition-all">
                   <Plus className="h-4 w-4" />
-                  <span>Create Patient Record Now</span>
+                  Create Patient Record
                 </button>
               </Link>
             </div>
@@ -214,41 +209,41 @@ export default function AppointmentDetailPage({ params }: AppointmentDetailPageP
       </div>
 
       {/* Appointment Info */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
-        <div className="flex items-center space-x-3 mb-4 pb-4 border-b-2 border-brand-yellow">
-          <div className="p-3 bg-brand-yellow rounded-xl">
-            <Calendar className="h-6 w-6 text-white" />
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+          <div className="p-2.5 bg-brand-yellow rounded-lg">
+            <Calendar className="h-5 w-5 text-white" />
           </div>
-          <h3 className="text-xl font-bold text-brand-yellow">Appointment Information</h3>
+          <h3 className="text-base font-bold text-gray-800">Appointment Information</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="text-sm text-gray-600">Date</p>
-            <p className="font-semibold text-lg">{formatDate(appointment.appointmentDate)}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Date</p>
+            <p className="font-semibold text-gray-900">{formatDate(appointment.appointmentDate)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Time</p>
-            <p className="font-semibold text-lg">{appointment.appointmentTime}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Time</p>
+            <p className="font-semibold text-gray-900">{appointment.appointmentTime}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Duration</p>
-            <p className="font-semibold">{appointment.duration} minutes</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Duration</p>
+            <p className="font-semibold text-gray-900">{appointment.duration} minutes</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">Type</p>
-            <p className="font-semibold">{appointment.appointmentType}</p>
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Type</p>
+            <p className="font-semibold text-gray-900">{appointment.appointmentType}</p>
           </div>
           {appointment.reason && (
             <div className="md:col-span-2">
-              <p className="text-sm text-gray-600">Reason for Visit</p>
-              <p className="font-semibold">{appointment.reason}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Reason for Visit</p>
+              <p className="font-semibold text-gray-900">{appointment.reason}</p>
             </div>
           )}
           {appointment.notes && (
             <div className="md:col-span-2">
-              <p className="text-sm text-gray-600">Internal Notes</p>
-              <p className="font-semibold text-gray-700">{appointment.notes}</p>
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Internal Notes</p>
+              <p className="text-gray-700">{appointment.notes}</p>
             </div>
           )}
         </div>
@@ -256,16 +251,16 @@ export default function AppointmentDetailPage({ params }: AppointmentDetailPageP
 
       {/* Add Visit for Completed Appointments */}
       {appointment.status === 'Completed' && appointment.patient && (
-        <div className="bg-gradient-to-br from-brand-teal/10 to-brand-teal/5 p-6 rounded-xl border-2 border-brand-teal/30">
+        <div className="bg-brand-teal/5 p-5 rounded-xl border border-brand-teal/20">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-brand-teal mb-2">Appointment Completed</h3>
-              <p className="text-sm text-gray-600">Add consultation details for this appointment</p>
+              <h3 className="text-sm font-bold text-brand-teal mb-0.5">Appointment Completed</h3>
+              <p className="text-sm text-gray-500">Add consultation details for this appointment</p>
             </div>
             <Link href={`/patients/${appointment.patient.id}/visit/new?appointmentId=${appointment.id}`}>
-              <button className="flex items-center space-x-2 px-6 py-3 bg-brand-teal text-white rounded-lg hover:bg-brand-teal/90 transition-all shadow-lg hover:shadow-xl">
-                <Plus className="h-5 w-5" />
-                <span className="font-semibold">Add Visit Record</span>
+              <button className="flex items-center gap-2 px-5 py-2.5 bg-brand-teal text-white rounded-lg hover:bg-brand-teal/90 transition-all shadow-sm text-sm font-semibold">
+                <Plus className="h-4 w-4" />
+                Add Visit Record
               </button>
             </Link>
           </div>
@@ -274,17 +269,17 @@ export default function AppointmentDetailPage({ params }: AppointmentDetailPageP
 
       {/* Status Actions */}
       {appointment.status !== 'Completed' && appointment.status !== 'Cancelled' && (
-        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
-          <h3 className="text-lg font-bold text-gray-700 mb-4">Update Status</h3>
-          <div className="flex flex-wrap gap-3">
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Update Status</h3>
+          <div className="flex flex-wrap gap-2">
             {appointment.status === 'Scheduled' && (
               <button
                 onClick={() => updateStatus('Confirmed')}
                 disabled={updating}
-                className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition-all disabled:opacity-50"
               >
                 <CheckCircle className="h-4 w-4" />
-                <span>Confirm Appointment</span>
+                Confirm
               </button>
             )}
             {(appointment.status === 'Scheduled' || appointment.status === 'Confirmed') && (
@@ -292,24 +287,24 @@ export default function AppointmentDetailPage({ params }: AppointmentDetailPageP
                 <button
                   onClick={() => updateStatus('Completed')}
                   disabled={updating}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-brand-teal text-white rounded-lg hover:bg-brand-teal/90 text-sm font-medium transition-all disabled:opacity-50"
                 >
                   <CheckCircle className="h-4 w-4" />
-                  <span>Mark as Completed</span>
+                  Mark Completed
                 </button>
                 <button
                   onClick={() => updateStatus('No-Show')}
                   disabled={updating}
-                  className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-orange-100 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-500 hover:text-white text-sm font-medium transition-all disabled:opacity-50"
                 >
-                  <span>Mark as No-Show</span>
+                  No-Show
                 </button>
                 <button
                   onClick={() => updateStatus('Cancelled')}
                   disabled={updating}
-                  className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-red-50 text-brand-red border border-red-200 rounded-lg hover:bg-brand-red hover:text-white text-sm font-medium transition-all disabled:opacity-50"
                 >
-                  <span>Cancel Appointment</span>
+                  Cancel
                 </button>
               </>
             )}

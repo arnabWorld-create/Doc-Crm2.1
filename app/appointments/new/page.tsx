@@ -89,13 +89,13 @@ export default function NewAppointmentPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-teal mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
             Book Appointment
           </h1>
-          <p className="text-gray-600">Schedule a new patient appointment</p>
+          <p className="text-sm text-gray-500 mt-0.5">Schedule a new patient appointment</p>
         </div>
         <Link href="/appointments">
-          <button className="flex items-center px-4 py-2 text-gray-700 bg-white border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all">
+          <button className="flex items-center px-4 py-2 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </button>
@@ -104,12 +104,12 @@ export default function NewAppointmentPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Patient Selection */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
-          <div className="flex items-center space-x-3 mb-4 pb-4 border-b-2 border-brand-teal">
-            <div className="p-3 bg-brand-teal rounded-xl">
-              <User className="h-6 w-6 text-white" />
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+            <div className="p-2.5 bg-brand-teal rounded-lg">
+              <User className="h-5 w-5 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-brand-teal">Select Patient</h3>
+            <h3 className="text-base font-bold text-gray-800">Select Patient</h3>
           </div>
 
           {/* Toggle between existing patient and walk-in */}
@@ -216,12 +216,12 @@ export default function NewAppointmentPage() {
         </div>
 
         {/* Appointment Details */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
-          <div className="flex items-center space-x-3 mb-4 pb-4 border-b-2 border-brand-yellow">
-            <div className="p-3 bg-brand-yellow rounded-xl">
-              <Calendar className="h-6 w-6 text-white" />
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+            <div className="p-2.5 bg-brand-yellow rounded-lg">
+              <Calendar className="h-5 w-5 text-white" />
             </div>
-            <h3 className="text-xl font-bold text-brand-yellow">Appointment Details</h3>
+            <h3 className="text-base font-bold text-gray-800">Appointment Details</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

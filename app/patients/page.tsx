@@ -93,24 +93,24 @@ const PatientsPage = async ({ searchParams }: PatientsPageProps) => {
   const totalPatients = await prisma.patient.count({ where: whereClause });
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-brand-teal mb-1 sm:mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
             Patient Records
           </h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage and track all patient information</p>
+          <p className="text-sm text-gray-500 mt-0.5">Manage and track all patient information</p>
         </div>
-        <div className="flex items-center text-sm">
-          <div className="bg-white px-4 py-2 sm:px-6 sm:py-3 rounded-xl shadow-md border-2 border-brand-yellow">
-            <span className="text-gray-600 font-medium">Total Patients:</span>
-            <span className="ml-2 font-bold text-brand-yellow text-base sm:text-lg">{totalPatients}</span>
+        <div className="flex items-center">
+          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-200">
+            <span className="text-gray-500 text-sm font-medium">Total:</span>
+            <span className="ml-2 font-bold text-brand-teal text-lg">{totalPatients}</span>
           </div>
         </div>
       </div>
       <Suspense fallback={
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-brand-teal"></div>
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-10 w-10 border-4 border-brand-teal border-b-transparent"></div>
         </div>
       }>
         <PatientTable

@@ -230,10 +230,10 @@ const AnalyticsPage = async () => {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-brand-teal mb-1 sm:mb-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
           Analytics Dashboard
         </h1>
-        <p className="text-sm sm:text-base text-gray-600">Real-time insights and performance metrics for DoXcia</p>
+        <p className="text-sm text-gray-500 mt-0.5">Real-time insights and performance metrics for DoXcia</p>
       </div>
 
       {/* Key Metrics */}

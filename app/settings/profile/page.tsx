@@ -180,10 +180,10 @@ export default function ClinicProfilePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-teal mb-2">
-          Clinic Profile Settings
+        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
+          Clinic Profile
         </h1>
-        <p className="text-gray-600">
+        <p className="text-sm text-gray-500 mt-0.5">
           Manage your clinic information and doctor details for prescriptions
         </p>
       </div>

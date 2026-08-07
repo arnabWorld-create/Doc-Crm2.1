@@ -77,10 +77,10 @@ export default function AppointmentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-teal mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
             Appointments
           </h1>
-          <p className="text-gray-600">Manage patient appointments and schedules</p>
+          <p className="text-sm text-gray-500 mt-0.5">Manage patient appointments and schedules</p>
         </div>
         <Link href="/appointments/new">
           <button className="flex items-center space-x-2 px-6 py-3 bg-brand-teal text-white rounded-lg hover:bg-brand-teal/90 transition-colors shadow-md">
@@ -91,18 +91,18 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-lg border-2 border-gray-100">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-col sm:flex-row gap-4">
           {/* Date Filter */}
           <div className="flex-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              <Filter className="h-4 w-4 inline mr-1" />
+            <label className="block text-sm font-medium text-gray-600 mb-1.5">
+              <Filter className="h-3.5 w-3.5 inline mr-1" />
               Time Period
             </label>
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="w-full rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none bg-white"
             >
               <option value="all">All Appointments</option>
               <option value="today">Today</option>
@@ -113,13 +113,13 @@ export default function AppointmentsPage() {
 
           {/* Status Filter */}
           <div className="flex-1">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-600 mb-1.5">
               Status
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded-lg border-2 border-gray-200 px-4 py-2 focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20 outline-none bg-white"
             >
               <option value="all">All Status</option>
               <option value="Scheduled">Scheduled</option>
@@ -133,49 +133,47 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Appointments List */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-brand-teal"></div>
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-10 w-10 border-4 border-brand-teal border-b-transparent"></div>
           </div>
         ) : appointments.length === 0 ? (
-          <div className="text-center py-12">
-            <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium mb-2">No appointments found</p>
-            <Link href="/appointments/new">
-              <button className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-teal hover:bg-brand-teal/90 rounded-lg transition-all">
-                <Plus className="h-4 w-4 mr-2" />
-                Book First Appointment
-              </button>
+          <div className="text-center py-16">
+            <Calendar className="h-12 w-12 text-gray-200 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">No appointments found</p>
+            <Link href="/appointments/new" className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-teal hover:bg-brand-teal/90 rounded-lg transition-all">
+              <Plus className="h-4 w-4 mr-2" />
+              Book First Appointment
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {appointments.map((appointment) => (
               <Link
                 key={appointment.id}
                 href={`/appointments/${appointment.id}`}
                 className="block"
               >
-                <div className="border-2 border-gray-200 rounded-xl p-4 hover:border-brand-teal hover:shadow-md transition-all">
+                <div className="border border-gray-200 rounded-xl p-4 hover:border-brand-teal/50 hover:shadow-sm transition-all">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(appointment.status)}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(appointment.status)}`}>
                           {appointment.status}
                         </span>
-                        <span className="text-xs font-medium text-gray-600">
+                        <span className="text-xs font-medium text-gray-500">
                           {appointment.appointmentType}
                         </span>
                       </div>
                       
-                      <div className="flex items-center space-x-2 mb-2">
-                        <User className="h-4 w-4 text-brand-teal" />
-                        <span className="font-semibold text-brand-teal">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <User className="h-4 w-4 text-brand-teal flex-shrink-0" />
+                        <span className="font-semibold text-gray-900">
                           {appointment.patient ? appointment.patient.name : appointment.tempPatientName}
                         </span>
                         {appointment.patient && (
-                          <span className="text-sm text-gray-600">
+                          <span className="text-xs text-gray-400">
                             ({appointment.patient.patientId})
                           </span>
                         )}
@@ -187,32 +185,30 @@ export default function AppointmentsPage() {
                       </div>
 
                       {(appointment.patient?.contact || appointment.tempPatientContact) && (
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <Phone className="h-4 w-4" />
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Phone className="h-3.5 w-3.5" />
                           <span>{appointment.patient?.contact || appointment.tempPatientContact}</span>
                         </div>
                       )}
 
                       {appointment.reason && (
-                        <p className="text-sm text-gray-600 mt-2">
-                          <span className="font-semibold">Reason:</span> {appointment.reason}
+                        <p className="text-sm text-gray-500 mt-1.5">
+                          <span className="font-medium text-gray-600">Reason:</span> {appointment.reason}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex flex-col items-end space-y-2">
-                      <div className="flex items-center space-x-2 text-brand-teal">
-                        <Calendar className="h-5 w-5" />
-                        <span className="font-semibold">
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-1.5">
+                      <div className="flex items-center gap-1.5 text-brand-teal">
+                        <Calendar className="h-4 w-4" />
+                        <span className="font-semibold text-sm">
                           {formatDate(appointment.appointmentDate)}
                         </span>
                       </div>
-                      <div className="flex items-center space-x-2 text-gray-600">
-                        <Clock className="h-5 w-5" />
-                        <span className="font-semibold">
-                          {appointment.appointmentTime}
-                        </span>
-                        <span className="text-sm">({appointment.duration} min)</span>
+                      <div className="flex items-center gap-1.5 text-gray-500">
+                        <Clock className="h-4 w-4" />
+                        <span className="text-sm font-medium">{appointment.appointmentTime}</span>
+                        <span className="text-xs text-gray-400">({appointment.duration}m)</span>
                       </div>
                     </div>
                   </div>

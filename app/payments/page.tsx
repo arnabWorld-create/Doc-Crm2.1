@@ -399,57 +399,57 @@ export default function PaymentsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">FinX</h1>
-          <p className="text-gray-600 mt-1">Financial insights & payment management</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal">FinX</h1>
+          <p className="text-gray-500 mt-0.5 text-sm">Financial insights & payment management</p>
         </div>
         <div className="p-3 bg-brand-teal/10 rounded-lg">
-          <CreditCard className="w-8 h-8 text-brand-teal" />
+          <CreditCard className="w-6 h-6 text-brand-teal" />
         </div>
       </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-6">
+        <div className="bg-gradient-to-br from-brand-teal to-brand-teal/90 p-5 rounded-xl shadow-sm text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Total Invoiced</p>
-              <p className="text-3xl font-bold text-gray-900 mt-2">
+              <p className="text-white/80 text-sm font-medium">Total Invoiced</p>
+              <p className="text-3xl font-bold mt-1">
                 ₹{totalInvoiced.toFixed(2)}
               </p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <FileText className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-white/20 rounded-lg">
+              <FileText className="w-6 h-6 text-white" />
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-6">
+        <div className="bg-white border-2 border-brand-teal p-5 rounded-xl shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Total Paid</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">
+              <p className="text-gray-500 text-sm font-medium">Total Collected</p>
+              <p className="text-3xl font-bold text-brand-teal mt-1">
                 ₹{totalPaid.toFixed(2)}
               </p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
+            <div className="p-3 bg-brand-teal/10 rounded-lg">
+              <DollarSign className="w-6 h-6 text-brand-teal" />
             </div>
           </div>
-        </Card>
+        </div>
 
-        <Card className="p-6">
+        <div className="bg-white border-2 border-brand-yellow p-5 rounded-xl shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Pending</p>
-              <p className="text-3xl font-bold text-orange-600 mt-2">
+              <p className="text-gray-500 text-sm font-medium">Pending</p>
+              <p className="text-3xl font-bold text-brand-yellow mt-1">
                 ₹{pendingAmount.toFixed(2)}
               </p>
             </div>
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-orange-600" />
+            <div className="p-3 bg-brand-yellow/10 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-brand-yellow" />
             </div>
           </div>
-        </Card>
+        </div>
       </div>
 
       {/* Tabs */}

@@ -211,10 +211,10 @@ export default function ImportPage() {
   const stepIdx = STEPS.indexOf(step);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 p-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-brand-teal">Import Patient Data</h1>
-        <p className="text-gray-600 mt-2">Upload your existing patient data from Excel, CSV, or JSON files</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Import Patient Data</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Upload your existing patient data from Excel, CSV, or JSON files</p>
       </div>
 
       {/* Progress Steps */}
@@ -234,8 +234,8 @@ export default function ImportPage() {
       {/* Step 1: Upload */}
       {step === 'upload' && (
         <div
-          className={`bg-white p-8 rounded-xl shadow-lg border-2 border-dashed transition-all ${
-            isDragging ? 'border-brand-teal bg-brand-teal/5 scale-[1.01]' : 'border-gray-300 hover:border-brand-teal'
+          className={`bg-white p-8 rounded-xl shadow-sm border-2 border-dashed transition-all ${
+            isDragging ? 'border-brand-teal bg-brand-teal/5 scale-[1.01]' : 'border-gray-200 hover:border-brand-teal'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -268,7 +268,7 @@ export default function ImportPage() {
 
       {/* Step 2: Column Mapping */}
       {step === 'mapping' && parsedData && (
-        <div className="bg-white p-8 rounded-xl shadow-lg">
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
           <h2 className="text-xl font-semibold mb-2">Map Your Columns</h2>
           <p className="text-gray-600 mb-4">We've auto-detected most columns. Review and adjust if needed.</p>
 
@@ -369,7 +369,7 @@ export default function ImportPage() {
 
       {/* Step 3: Validation */}
       {step === 'validation' && validation && (
-        <div className="bg-white p-8 rounded-xl shadow-lg">
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
           <h2 className="text-xl font-semibold mb-4">Validation Results</h2>
 
           {validation.errors.length > 0 && (
@@ -450,8 +450,8 @@ export default function ImportPage() {
 
       {/* Step 4: Importing */}
       {step === 'importing' && (
-        <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-brand-teal mx-auto mb-4"></div>
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200 text-center">
+          <div className="animate-spin rounded-full h-14 w-14 border-4 border-brand-teal border-b-transparent mx-auto mb-4"></div>
           <h2 className="text-xl font-semibold mb-4">Importing Data...</h2>
           <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-hidden relative">
             <div
@@ -468,7 +468,7 @@ export default function ImportPage() {
 
       {/* Step 5: Complete */}
       {step === 'complete' && result && (
-        <div className="bg-white p-8 rounded-xl shadow-lg">
+        <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-200">
           <div className="text-center">
             <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
             <h2 className="text-2xl font-bold mb-4">Import Complete!</h2>

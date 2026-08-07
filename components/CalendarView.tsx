@@ -138,7 +138,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* Calendar */}
-      <div className="lg:col-span-2 bg-white rounded-xl shadow-lg border-2 border-gray-100 p-4 sm:p-6">
+      <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-brand-teal">
@@ -192,7 +192,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       {/* Selected Date Details */}
-      <div className="bg-white rounded-xl shadow-lg border-2 border-gray-100 p-4 sm:p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
         <h3 className="text-lg sm:text-xl font-bold text-brand-teal mb-4 flex items-center">
           <CalendarIcon className="h-5 w-5 mr-2" />
           {selectedDate ? selectedDate.toLocaleDateString('en-US', {

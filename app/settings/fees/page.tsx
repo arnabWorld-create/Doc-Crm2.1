@@ -158,8 +158,8 @@ export default function FeesManagementPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Fee Management</h1>
-          <p className="text-gray-600 mt-1">Manage OPD fees and service charges</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Fee Management</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage OPD fees and service charges</p>
         </div>
         {!isAdding && !editingId && (
           <button

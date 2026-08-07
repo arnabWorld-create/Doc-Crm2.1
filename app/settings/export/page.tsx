@@ -51,16 +51,16 @@ export default function ExportPage() {
   };
   
   return (
-    <div className="max-w-4xl mx-auto space-y-6 p-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-brand-teal">Export Your Data</h1>
-        <p className="text-gray-600 mt-2">
+        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Export Your Data</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
           Download all your patient data in various formats for backup or migration
         </p>
       </div>
       
       {/* Export Options */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold mb-4">Export Options</h3>
         
         <div className="space-y-3">
@@ -95,8 +95,8 @@ export default function ExportPage() {
       {/* Export Formats */}
       <div className="grid md:grid-cols-3 gap-6">
         {/* Excel Export */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100 hover:border-green-300 transition-all">
-          <FileSpreadsheet className="w-12 h-12 text-green-600 mb-4" />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-green-300 transition-all">
+          <FileSpreadsheet className="w-10 h-10 text-green-600 mb-3" />
           <h3 className="text-xl font-semibold mb-2">Excel Export</h3>
           <p className="text-gray-600 mb-4 text-sm">
             Download as Excel file with multiple sheets. Best for backup and migration.
@@ -122,8 +122,8 @@ export default function ExportPage() {
         </div>
         
         {/* JSON Export */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100 hover:border-blue-300 transition-all">
-          <FileJson className="w-12 h-12 text-blue-600 mb-4" />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-blue-300 transition-all">
+          <FileJson className="w-10 h-10 text-blue-600 mb-3" />
           <h3 className="text-xl font-semibold mb-2">JSON Backup</h3>
           <p className="text-gray-600 mb-4 text-sm">
             Complete backup in JSON format. Best for technical users and API integration.
@@ -149,8 +149,8 @@ export default function ExportPage() {
         </div>
         
         {/* CSV Export */}
-        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100 hover:border-purple-300 transition-all">
-          <FileText className="w-12 h-12 text-purple-600 mb-4" />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:border-purple-300 transition-all">
+          <FileText className="w-10 h-10 text-purple-600 mb-3" />
           <h3 className="text-xl font-semibold mb-2">CSV Export</h3>
           <p className="text-gray-600 mb-4 text-sm">
             Download as CSV file. Universal format that works with any software.
@@ -216,7 +216,7 @@ export default function ExportPage() {
       </div>
       
       {/* Use Cases */}
-      <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-gray-100">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h3 className="text-lg font-semibold mb-4">When to Export?</h3>
         <div className="grid md:grid-cols-3 gap-4 text-sm">
           <div>

@@ -18,18 +18,16 @@ function NewPatientContent() {
     contact: preFillContact,
   } : undefined;
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center space-x-3 sm:space-x-4">
-        <div className="p-2 sm:p-3 md:p-4 bg-brand-teal rounded-lg sm:rounded-xl shadow-lg">
-          <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="space-y-5">
+      <div className="flex items-start gap-4">
+        <div className="p-2.5 bg-brand-teal rounded-lg flex-shrink-0">
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
           </svg>
         </div>
         <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-brand-teal">
-            Add New Patient
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">Fill in the patient information below</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Add New Patient</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Fill in the patient information below</p>
         </div>
       </div>
 
@@ -74,18 +72,16 @@ function NewPatientContent() {
 const NewPatientPage = () => {
   return (
     <Suspense fallback={
-      <div className="space-y-4 sm:space-y-6">
-        <div className="flex items-center space-x-3 sm:space-x-4">
-          <div className="p-2 sm:p-3 md:p-4 bg-brand-teal rounded-lg sm:rounded-xl shadow-lg">
-            <svg className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="space-y-5">
+        <div className="flex items-start gap-4">
+          <div className="p-2.5 bg-brand-teal rounded-lg flex-shrink-0">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-brand-teal">
-              Add New Patient
-            </h1>
-            <p className="text-sm sm:text-base text-gray-600 mt-1">Loading...</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Add New Patient</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Loading...</p>
           </div>
         </div>
       </div>
