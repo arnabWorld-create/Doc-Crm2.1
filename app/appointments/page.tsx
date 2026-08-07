@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Calendar, Clock, Plus, Filter, User, Phone } from 'lucide-react';
 import { formatDate } from '@/utils/formatDate';
+import { Badge, type BadgeVariant } from '@/components/ui/badge';
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -55,20 +56,14 @@ export default function AppointmentsPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string): BadgeVariant => {
     switch (status) {
-      case 'Scheduled':
-        return 'bg-blue-100 text-blue-700';
-      case 'Confirmed':
-        return 'bg-green-100 text-green-700';
-      case 'Completed':
-        return 'bg-gray-100 text-gray-700';
-      case 'Cancelled':
-        return 'bg-red-100 text-red-700';
-      case 'No-Show':
-        return 'bg-orange-100 text-orange-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
+      case 'Scheduled':  return 'info';
+      case 'Confirmed':  return 'success';
+      case 'Completed':  return 'muted';
+      case 'Cancelled':  return 'danger';
+      case 'No-Show':    return 'warning';
+      default:           return 'muted';
     }
   };
 
@@ -159,9 +154,9 @@ export default function AppointmentsPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(appointment.status)}`}>
+                        <Badge variant={getStatusVariant(appointment.status)}>
                           {appointment.status}
-                        </span>
+                        </Badge>
                         <span className="text-xs font-medium text-gray-500">
                           {appointment.appointmentType}
                         </span>

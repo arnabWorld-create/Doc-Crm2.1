@@ -101,11 +101,9 @@ const PatientsPage = async ({ searchParams }: PatientsPageProps) => {
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">Manage and track all patient information</p>
         </div>
-        <div className="flex items-center">
-          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-gray-200">
-            <span className="text-gray-500 text-sm font-medium">Total:</span>
-            <span className="ml-2 font-bold text-brand-teal text-lg">{totalPatients}</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-400 font-medium">Total</span>
+          <span className="text-2xl font-extrabold text-brand-teal leading-none">{totalPatients}</span>
         </div>
       </div>
       <Suspense fallback={

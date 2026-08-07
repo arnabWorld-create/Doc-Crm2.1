@@ -63,17 +63,24 @@ interface Patient {
 interface PrescriptionPrintProps {
   patient: Patient;
   visit: Visit;
+  /** Optional callback to receive clinic profile after it loads */
+  onClinicProfileLoad?: (profile: ClinicProfile) => void;
 }
 
-const PrescriptionPrint: React.FC<PrescriptionPrintProps> = ({ patient, visit }) => {
-  const componentRef = useRef<HTMLDivElement>(null);
+const PrescriptionPrint = React.forwardRef<HTMLDivElement, PrescriptionPrintProps>(
+  ({ patient, visit, onClinicProfileLoad }, forwardedRef) => {
+  const internalRef = useRef<HTMLDivElement>(null);
+  // Use forwardedRef if provided, else internal ref
+  const componentRef = (forwardedRef ?? internalRef) as React.RefObject<HTMLDivElement>;
   const [clinicProfile, setClinicProfile] = useState<ClinicProfile | null>(null);
 
   useEffect(() => {
-    // Fetch clinic profile data
     fetch('/api/clinic-profile')
       .then(res => res.json())
-      .then(data => setClinicProfile(data))
+      .then(data => {
+        setClinicProfile(data);
+        onClinicProfileLoad?.(data);
+      })
       .catch(err => console.error('Failed to fetch clinic profile:', err));
   }, []);
 
@@ -95,14 +102,14 @@ const PrescriptionPrint: React.FC<PrescriptionPrintProps> = ({ patient, visit })
       {/* Print Button */}
       <button
         onClick={handlePrint}
-        className="flex items-center space-x-2 px-4 py-2 bg-brand-teal text-white rounded-lg hover:bg-brand-teal/90 transition-colors"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-brand-teal text-white border border-brand-teal hover:bg-brand-teal/90 transition-all"
       >
-        <Printer className="h-5 w-5" />
-        <span>Print Prescription</span>
+        <Printer className="h-3.5 w-3.5" />
+        Print Rx
       </button>
 
-      {/* Hidden Prescription Template */}
-      <div style={{ display: 'none' }}>
+      {/* Hidden Prescription Template — off-screen but rendered so html2canvas can capture it */}
+      <div style={{ visibility: 'hidden', position: 'absolute', left: '-9999px', top: 0, pointerEvents: 'none' }}>
         <style dangerouslySetInnerHTML={{ __html: `
             @media print {
               @page {
@@ -481,6 +488,8 @@ const PrescriptionPrint: React.FC<PrescriptionPrintProps> = ({ patient, visit })
       </div>
     </div>
   );
-};
+});
+
+PrescriptionPrint.displayName = 'PrescriptionPrint';
 
 export default PrescriptionPrint;

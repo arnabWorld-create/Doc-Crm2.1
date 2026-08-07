@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import CalendarView from '@/components/CalendarView';
+import { PageHeader } from '@/components/ui/page-header';
 
 // Cache calendar for 1 minute (60 seconds) - balance between freshness and performance
 // This reduces database queries by 50% while keeping data relatively fresh
@@ -97,15 +98,10 @@ const CalendarPage = async ({ searchParams }: CalendarPageProps) => {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
-          Appointment Calendar
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          View consultations and follow-up appointments by date
-        </p>
-      </div>
-
+      <PageHeader
+        title="Appointment Calendar"
+        subtitle="View consultations and follow-up appointments by date"
+      />
       <CalendarView
         consultations={consultations}
         followUps={followUps}
