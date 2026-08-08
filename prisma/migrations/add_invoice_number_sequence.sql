@@ -34,9 +34,10 @@ BEGIN
 
   -- If the sequence already exists but its current value is below current_max,
   -- advance it so we never re-issue a number that was already used.
+  -- GREATEST(..., 1) ensures we never pass 0, which is below the sequence minimum.
   PERFORM setval(
     'invoice_number_seq',
-    GREATEST(current_max, nextval('invoice_number_seq') - 1),
+    GREATEST(current_max, nextval('invoice_number_seq') - 1, 1),
     true
   );
 END
