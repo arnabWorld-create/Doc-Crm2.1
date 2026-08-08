@@ -36,6 +36,7 @@ interface Visit {
   visitDate: string;
   notes?: string;
   paidBy?: string;
+  fees?: { total: number }[];
 }
 
 interface ClinicProfile {
