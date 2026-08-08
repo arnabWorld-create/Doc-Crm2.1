@@ -26,7 +26,7 @@ const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 const CalendarView: React.FC<CalendarViewProps> = ({
   consultations,
@@ -123,7 +123,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         <button
           key={i}
           onClick={() => setSelectedDate(new Date(currentYear, currentMonth, day))}
-          className={`min-h-[5.5rem] p-2 rounded-lg border text-left transition-all flex flex-col
+          className={`min-h-[4rem] sm:min-h-[5.5rem] p-1 sm:p-2 rounded-lg border text-left transition-all flex flex-col
             ${isSelected
               ? 'border-brand-teal bg-brand-teal/5 ring-2 ring-brand-teal/30'
               : isToday
@@ -133,7 +133,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
         >
           {/* Date number */}
           <span
-            className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-semibold mb-1 flex-shrink-0
+            className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-xs sm:text-sm font-semibold mb-0.5 sm:mb-1 flex-shrink-0
               ${isToday
                 ? 'bg-brand-teal text-white'
                 : isSelected
@@ -147,13 +147,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           {/* Event pills */}
           <div className="flex flex-col gap-0.5 w-full">
             {hasConsult && (
-              <span className="text-[10px] leading-tight bg-brand-teal text-white px-1.5 py-0.5 rounded font-medium truncate">
-                {events.consultations.length} Consult{events.consultations.length > 1 ? 's' : ''}
+              <span className="text-[9px] sm:text-[10px] leading-tight bg-brand-teal text-white px-1 sm:px-1.5 py-0.5 rounded font-medium truncate">
+                <span className="hidden sm:inline">{events.consultations.length} Consult{events.consultations.length > 1 ? 's' : ''}</span>
+                <span className="sm:hidden">{events.consultations.length}C</span>
               </span>
             )}
             {hasFollowUp && (
-              <span className="text-[10px] leading-tight bg-brand-yellow text-white px-1.5 py-0.5 rounded font-medium truncate">
-                {events.followUps.length} Follow-up{events.followUps.length > 1 ? 's' : ''}
+              <span className="text-[9px] sm:text-[10px] leading-tight bg-brand-yellow text-white px-1 sm:px-1.5 py-0.5 rounded font-medium truncate">
+                <span className="hidden sm:inline">{events.followUps.length} Follow-up{events.followUps.length > 1 ? 's' : ''}</span>
+                <span className="sm:hidden">{events.followUps.length}F</span>
               </span>
             )}
           </div>
@@ -255,15 +257,15 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 min-h-[12rem]">
           {!selectedDate ? (
-            <div className="flex flex-col items-center justify-center h-full py-12 text-gray-300">
+            <div className="flex flex-col items-center justify-center py-12 text-gray-300">
               <CalendarDays className="h-14 w-14 mb-3" />
               <p className="text-sm font-medium text-gray-400">Click a date to view</p>
               <p className="text-xs text-gray-300 mt-1">appointments for that day</p>
             </div>
           ) : !selectedHasEvents ? (
-            <div className="flex flex-col items-center justify-center h-full py-12 text-gray-300">
+            <div className="flex flex-col items-center justify-center py-12 text-gray-300">
               <CalendarDays className="h-14 w-14 mb-3" />
               <p className="text-sm font-medium text-gray-400">No appointments</p>
               <p className="text-xs text-gray-300 mt-1">Nothing scheduled on this day</p>

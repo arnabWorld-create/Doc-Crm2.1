@@ -272,11 +272,11 @@ export function TopConditionsChart({ data }: { data: NameCount[] }) {
         <YAxis
           type="category"
           dataKey="name"
-          width={115}
-          tick={{ fontSize: 11, fill: '#374151' }}
+          width={90}
+          tick={{ fontSize: 10, fill: '#374151' }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v: string) => v.length > 16 ? v.slice(0, 15) + '…' : v}
+          tickFormatter={(v: string) => v.length > 13 ? v.slice(0, 12) + '…' : v}
         />
         <Tooltip
           contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', fontSize: 12 }}
@@ -327,11 +327,11 @@ export function TopMedicinesChart({ data }: { data: NameCount[] }) {
         <YAxis
           type="category"
           dataKey="name"
-          width={115}
-          tick={{ fontSize: 11, fill: '#374151' }}
+          width={90}
+          tick={{ fontSize: 10, fill: '#374151' }}
           axisLine={false}
           tickLine={false}
-          tickFormatter={(v: string) => v.length > 16 ? v.slice(0, 15) + '…' : v}
+          tickFormatter={(v: string) => v.length > 13 ? v.slice(0, 12) + '…' : v}
         />
         <Tooltip
           contentStyle={{ borderRadius: 10, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', fontSize: 12 }}

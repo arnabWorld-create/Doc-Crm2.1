@@ -281,10 +281,10 @@ export function PaymentAnalytics({
   return (
     <div className="space-y-6">
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 font-medium transition-all ${
+          className={`px-4 py-2 font-medium transition-all whitespace-nowrap ${
             activeTab === 'overview'
               ? 'text-brand-teal border-b-2 border-brand-teal'
               : 'text-gray-600 hover:text-gray-900'
@@ -294,7 +294,7 @@ export function PaymentAnalytics({
         </button>
         <button
           onClick={() => setActiveTab('patients')}
-          className={`px-4 py-2 font-medium transition-all ${
+          className={`px-4 py-2 font-medium transition-all whitespace-nowrap ${
             activeTab === 'patients'
               ? 'text-brand-teal border-b-2 border-brand-teal'
               : 'text-gray-600 hover:text-gray-900'
@@ -309,98 +309,98 @@ export function PaymentAnalytics({
       ) : (
         <>
           {/* Time Range Selector */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(['7d', '30d', '90d', 'all'] as const).map((range) => (
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                   timeRange === range
                     ? 'bg-brand-teal text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : range === '90d' ? 'Last 90 Days' : 'All Time'}
+                {range === '7d' ? '7 Days' : range === '30d' ? '30 Days' : range === '90d' ? '90 Days' : 'All Time'}
               </button>
             ))}
           </div>
 
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Total Income</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                <div className="min-w-0">
+                  <p className="text-gray-600 text-xs sm:text-sm font-medium">Total Income</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2 truncate">
                     ₹{analytics.totalIncome.toFixed(0)}
                   </p>
                   {analytics.conversionRate > 0 && (
-                    <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                      <ArrowUpRight className="w-3 h-3" />
+                    <p className="text-xs text-green-600 mt-1 sm:mt-2 flex items-center gap-1">
+                      <ArrowUpRight className="w-3 h-3 flex-shrink-0" />
                       {analytics.conversionRate.toFixed(1)}% collected
                     </p>
                   )}
                 </div>
-                <div className="p-3 bg-green-100 rounded-lg">
-                  <DollarSign className="w-6 h-6 text-green-600" />
+                <div className="p-2 sm:p-3 bg-green-100 rounded-lg flex-shrink-0 ml-2">
+                  <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Total Paid</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                <div className="min-w-0">
+                  <p className="text-gray-600 text-xs sm:text-sm font-medium">Total Paid</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2 truncate">
                     ₹{analytics.totalPaid.toFixed(0)}
                   </p>
-                  <p className="text-xs text-blue-600 mt-2">
+                  <p className="text-xs text-blue-600 mt-1 sm:mt-2">
                     {analytics.conversionRate.toFixed(1)}% conversion
                   </p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-lg">
-                  <TrendingUp className="w-6 h-6 text-blue-600" />
+                <div className="p-2 sm:p-3 bg-blue-100 rounded-lg flex-shrink-0 ml-2">
+                  <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Pending</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                <div className="min-w-0">
+                  <p className="text-gray-600 text-xs sm:text-sm font-medium">Pending</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2 truncate">
                     ₹{analytics.totalPending.toFixed(0)}
                   </p>
-                  <p className="text-xs text-orange-600 mt-2">
+                  <p className="text-xs text-orange-600 mt-1 sm:mt-2">
                     {analytics.invoiceStats.pending} invoices
                   </p>
                 </div>
-                <div className="p-3 bg-orange-100 rounded-lg">
-                  <Clock className="w-6 h-6 text-orange-600" />
+                <div className="p-2 sm:p-3 bg-orange-100 rounded-lg flex-shrink-0 ml-2">
+                  <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
                 </div>
               </div>
             </Card>
 
-            <Card className="p-6">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-gray-600 text-sm font-medium">Avg Invoice</p>
-                  <p className="text-3xl font-bold text-gray-900 mt-2">
+                <div className="min-w-0">
+                  <p className="text-gray-600 text-xs sm:text-sm font-medium">Avg Invoice</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1 sm:mt-2 truncate">
                     ₹{analytics.averageInvoice.toFixed(0)}
                   </p>
-                  <p className="text-xs text-purple-600 mt-2">
+                  <p className="text-xs text-purple-600 mt-1 sm:mt-2">
                     {analytics.invoiceStats.total} invoices
                   </p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-lg">
-                  <BarChart3 className="w-6 h-6 text-purple-600" />
+                <div className="p-2 sm:p-3 bg-purple-100 rounded-lg flex-shrink-0 ml-2">
+                  <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
                 </div>
               </div>
             </Card>
           </div>
 
           {/* Patient Statistics Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -524,24 +524,24 @@ export function PaymentAnalytics({
       </div>
 
           {/* Top Patients */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <Users className="w-5 h-5 text-brand-teal" />
               Top Patients by Revenue
             </h3>
             <div className="space-y-3">
               {analytics.topPatients.map((patient, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-brand-teal/20 flex items-center justify-center text-sm font-semibold text-brand-teal">
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-brand-teal/20 flex items-center justify-center text-sm font-semibold text-brand-teal flex-shrink-0">
                       {index + 1}
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{patient.name}</p>
-                      <p className="text-xs text-gray-600">{patient.invoices} invoices • {patient.visits} visits</p>
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{patient.name}</p>
+                      <p className="text-xs text-gray-600">{patient.invoices} invoices · {patient.visits} visits</p>
                     </div>
                   </div>
-                  <p className="font-semibold text-gray-900">₹{patient.amount.toFixed(0)}</p>
+                  <p className="font-semibold text-gray-900 flex-shrink-0">₹{patient.amount.toFixed(0)}</p>
                 </div>
               ))}
             </div>

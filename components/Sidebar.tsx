@@ -220,7 +220,7 @@ export function Sidebar() {
         <div
           className={cn(
             'flex items-center gap-2.5 px-4 py-4 border-b border-gray-100',
-            collapsed && !mobile && 'justify-center px-2'
+            collapsed && !mobile && 'flex-col justify-center items-center px-2 py-3 gap-2'
           )}
         >
           <div className="bg-brand-red p-1.5 rounded-lg flex-shrink-0">
@@ -234,7 +234,7 @@ export function Sidebar() {
               onClick={() => setCollapsed((c) => !c)}
               className={cn(
                 'ml-auto p-1 rounded-md text-gray-400 hover:text-brand-teal hover:bg-brand-teal/8 transition-all',
-                collapsed && 'ml-0 mt-2'
+                collapsed && 'ml-0'
               )}
               title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >

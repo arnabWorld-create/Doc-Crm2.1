@@ -225,17 +225,17 @@ const AnalyticsPage = async () => {
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
-              <p className="text-2xl font-bold">{totalPatients.toLocaleString('en-IN')}</p>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 border border-white/10 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold">{totalPatients.toLocaleString('en-IN')}</p>
               <p className="text-white/70 text-xs mt-0.5">Total Patients</p>
             </div>
-            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
-              <p className="text-2xl font-bold">{consultationsToday}</p>
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 border border-white/10 min-w-0">
+              <p className="text-xl sm:text-2xl font-bold">{consultationsToday}</p>
               <p className="text-white/70 text-xs mt-0.5">Today</p>
             </div>
-            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
-              <p className={`text-2xl font-bold ${growthPositive ? 'text-green-300' : 'text-red-300'}`}>
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 border border-white/10 min-w-0">
+              <p className={`text-xl sm:text-2xl font-bold ${growthPositive ? 'text-green-300' : 'text-red-300'}`}>
                 {growthPositive ? '+' : ''}{growthRate}%
               </p>
               <p className="text-white/70 text-xs mt-0.5">Growth</p>

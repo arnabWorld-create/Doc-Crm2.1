@@ -84,6 +84,11 @@
   }
 }
 
+/* Prevent horizontal scrollbar from decorative absolutely-positioned elements */
+body {
+  overflow-x: hidden;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 10px;

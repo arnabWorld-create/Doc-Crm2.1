@@ -71,7 +71,7 @@ export function PageHero({
 
         {/* Right: stats + optional actions */}
         {(stats?.length || actions) && (
-          <div className="flex flex-shrink-0 items-center gap-2 sm:gap-3">
+          <div className="flex flex-wrap flex-shrink-0 items-center gap-2 sm:gap-3">
             {stats?.map((s, i) => (
               <div
                 key={i}

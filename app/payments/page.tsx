@@ -461,10 +461,10 @@ export default function PaymentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('analytics')}
-          className={`px-4 py-3 font-medium border-b-2 transition-all ${
+          className={`px-4 py-3 font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'analytics'
               ? 'border-brand-teal text-brand-teal'
               : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -474,7 +474,7 @@ export default function PaymentsPage() {
         </button>
         <button
           onClick={() => setActiveTab('invoices')}
-          className={`px-4 py-3 font-medium border-b-2 transition-all ${
+          className={`px-4 py-3 font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'invoices'
               ? 'border-brand-teal text-brand-teal'
               : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -484,7 +484,7 @@ export default function PaymentsPage() {
         </button>
         <button
           onClick={() => setActiveTab('payments')}
-          className={`px-4 py-3 font-medium border-b-2 transition-all ${
+          className={`px-4 py-3 font-medium border-b-2 transition-all whitespace-nowrap ${
             activeTab === 'payments'
               ? 'border-brand-teal text-brand-teal'
               : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -518,10 +518,10 @@ export default function PaymentsPage() {
               ) : (
                 <div className="grid gap-4">
                   {invoices.map((invoice) => (
-                    <Card key={invoice.id} className="p-6 hover:shadow-lg transition-all">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
+                    <Card key={invoice.id} className="p-4 sm:p-6 hover:shadow-lg transition-all">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             <h3 className="font-semibold text-gray-900">
                               {invoice.invoiceNumber}
                             </h3>
@@ -529,18 +529,18 @@ export default function PaymentsPage() {
                               {invoice.status}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600">
-                            {invoice.patientName || 'Patient'} • Due: {formatDate(invoice.dueDate)}
+                          <p className="text-sm text-gray-600 truncate">
+                            {invoice.patientName || 'Patient'} · Due: {formatDate(invoice.dueDate)}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right flex-shrink-0">
                           <p className="text-2xl font-bold text-gray-900">
                             ₹{invoice.amount.toFixed(2)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex gap-3 items-end justify-end">
+                      <div className="flex gap-3 items-center justify-end">
                         <button
                           onClick={() => handleDownloadInvoice(invoice)}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-all"
@@ -572,10 +572,10 @@ export default function PaymentsPage() {
               ) : (
                 <div className="grid gap-4">
                   {payments.map((payment) => (
-                    <Card key={payment.id} className="p-6 hover:shadow-lg transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
+                    <Card key={payment.id} className="p-4 sm:p-6 hover:shadow-lg transition-all">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-3 mb-2">
                             <h3 className="font-semibold text-gray-900">
                               Payment {payment.id.slice(0, 8)}
                             </h3>
@@ -587,7 +587,7 @@ export default function PaymentsPage() {
                             {formatDate(payment.createdAt)}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right flex-shrink-0">
                           <p className="text-2xl font-bold text-green-600">
                             ₹{payment.amount.toFixed(2)}
                           </p>

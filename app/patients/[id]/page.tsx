@@ -138,14 +138,14 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
             </div>
 
             {/* Action buttons */}
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
               <Link href="/patients">
-                <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
+                <button className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
                   <ArrowLeft className="h-4 w-4" />Back
                 </button>
               </Link>
               <Link href={`/patients/${patient.id}/visit/new`}>
-                <button className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-teal hover:bg-brand-teal/90 rounded-lg shadow-sm transition-all">
+                <button className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium text-white bg-brand-teal hover:bg-brand-teal/90 rounded-lg shadow-sm transition-all">
                   <Plus className="h-4 w-4" />Add Visit
                 </button>
               </Link>
@@ -223,7 +223,7 @@ export default function PatientDetailPage({ params }: PatientDetailPageProps) {
                             {formatDate(visit.visitDate)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           {/* WhatsApp */}
                           {patient.contact && (
                             <WhatsAppShareButton

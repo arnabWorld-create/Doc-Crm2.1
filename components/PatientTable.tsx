@@ -112,13 +112,13 @@ const PatientTable: React.FC<PatientTableProps> = ({ patients, totalPatients, cu
               <Download className="h-4 w-4" />
               Export Excel
             </a>
-            <Link href="/patients/new" className="sm:mr-auto">
+            <Link href="/patients/new">
               <button className="w-full inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-medium text-white bg-brand-teal hover:bg-brand-teal/90 rounded-lg shadow-sm transition-all">
                 <UserPlus className="h-4 w-4" />
                 Add Patient
               </button>
             </Link>
-            <div className="sm:ml-auto">
+            <div className="sm:ml-auto w-full sm:w-auto">
               <DateRangeFilter />
             </div>
           </div>
