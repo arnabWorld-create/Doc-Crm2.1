@@ -102,32 +102,66 @@ export const POST = withMiddleware(
       return sum + item.quantity * item.unitPrice;
     }, 0);
 
-    // Generate invoice number
-    const invoiceCount = await (prisma as any).invoice.count();
-    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(5, '0')}`;
+    // Generate invoice number atomically using a DB sequence so concurrent
+    // requests never produce the same number.  Falls back to timestamp on
+    // the unlikely event the sequence doesn't exist yet (pre-migration envs).
+    let invoiceNumber: string;
+    try {
+      const result = await prisma.$queryRaw<[{ nextval: bigint }]>`
+        SELECT nextval('invoice_number_seq') AS nextval
+      `;
+      const seq = Number(result[0].nextval);
+      invoiceNumber = `INV-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}`;
+    } catch {
+      // Sequence not yet created — use timestamp as a safe fallback so the
+      // request doesn't hard-fail before the migration has been applied.
+      invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now()}`;
+    }
 
-    // Create invoice with items
-    const invoice = await (prisma as any).invoice.create({
-      data: {
-        invoiceNumber,
-        patientId,
-        amount: totalAmount,
-        dueDate: new Date(dueDate),
-        notes,
-        metadata: metadata ? JSON.stringify(metadata) : null,
-        items: {
-          create: items.map((item: any) => ({
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.quantity * item.unitPrice,
-          })),
-        },
-      },
-      include: {
-        items: true,
-      },
-    });
+    // Create invoice with items — retry once on the rare unique-constraint
+    // violation (e.g. year rollover while sequence hasn't reset).
+    let invoice: any;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        invoice = await (prisma as any).invoice.create({
+          data: {
+            invoiceNumber,
+            patientId,
+            amount: totalAmount,
+            dueDate: new Date(dueDate),
+            notes,
+            metadata: metadata ? JSON.stringify(metadata) : null,
+            items: {
+              create: items.map((item: any) => ({
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                total: item.quantity * item.unitPrice,
+              })),
+            },
+          },
+          include: {
+            items: true,
+          },
+        });
+        break; // success — exit retry loop
+      } catch (err: any) {
+        const isDuplicate =
+          err?.code === 'P2002' &&
+          err?.meta?.target?.includes('invoiceNumber');
+        if (!isDuplicate || attempt === 1) throw err;
+        // On duplicate, fetch the next sequence value and retry
+        try {
+          const result = await prisma.$queryRaw<[{ nextval: bigint }]>`
+            SELECT nextval('invoice_number_seq') AS nextval
+          `;
+          const seq = Number(result[0].nextval);
+          invoiceNumber = `INV-${new Date().getFullYear()}-${String(seq).padStart(5, '0')}`;
+        } catch {
+          invoiceNumber = `INV-${new Date().getFullYear()}-${Date.now()}`;
+        }
+      }
+    }
 
     logger.info('Invoice created', {
       invoiceId: invoice.id,

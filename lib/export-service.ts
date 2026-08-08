@@ -14,23 +14,29 @@ export interface ExportOptions {
 
 export class ExportService {
   /**
-   * Export all data as Excel workbook
+   * Export all data as Excel workbook.
+   * Capped at 10,000 patients, 100,000 visits, and 50,000 appointments to
+   * prevent OOM in serverless.  For larger datasets use a chunked/streaming
+   * export or the filtered /api/patients/export endpoint.
    */
   async exportToExcel(options: ExportOptions = {}): Promise<Buffer> {
     const { includeVisits = true, includeMedications = true, includeAppointments = true } = options;
     
-    // Fetch all data in parallel
+    // Fetch all data in parallel — hard caps prevent OOM on large datasets
     const [patients, visits, appointments] = await Promise.all([
       prisma.patient.findMany({
         orderBy: { createdAt: 'desc' },
+        take: 10_000,
       }),
       includeVisits ? prisma.visit.findMany({
         include: { patient: true },
         orderBy: { visitDate: 'desc' },
+        take: 100_000,
       }) : Promise.resolve([]),
       includeAppointments ? prisma.appointment.findMany({
         include: { patient: true },
         orderBy: { appointmentDate: 'desc' },
+        take: 50_000,
       }) : Promise.resolve([]),
     ]);
     
@@ -108,7 +114,8 @@ export class ExportService {
   }
   
   /**
-   * Export as JSON (complete backup)
+   * Export as JSON (complete backup).
+   * Capped at 10,000 patients and 100,000 visits.
    */
   async exportToJSON(options: ExportOptions = {}): Promise<any> {
     const { includeVisits = true, includeAppointments = true } = options;
@@ -116,16 +123,19 @@ export class ExportService {
     // Fetch clinic info
     const clinic = await prisma.clinicProfile.findFirst();
     
-    // Fetch all data
+    // Fetch all data — hard caps prevent OOM on large datasets
     const [patients, visits, appointments] = await Promise.all([
       prisma.patient.findMany({
         orderBy: { createdAt: 'desc' },
+        take: 10_000,
       }),
       includeVisits ? prisma.visit.findMany({
         orderBy: { visitDate: 'desc' },
+        take: 100_000,
       }) : Promise.resolve([]),
       includeAppointments ? prisma.appointment.findMany({
         orderBy: { appointmentDate: 'desc' },
+        take: 50_000,
       }) : Promise.resolve([]),
     ]);
     
@@ -152,23 +162,27 @@ export class ExportService {
   }
   
   /**
-   * Export as CSV (returns multiple CSV strings)
+   * Export as CSV (returns multiple CSV strings).
+   * Capped at 10,000 patients, 100,000 visits, and 50,000 appointments.
    */
   async exportToCSV(options: ExportOptions = {}): Promise<{ [filename: string]: string }> {
     const { includeVisits = true, includeAppointments = true } = options;
     
-    // Fetch all data
+    // Fetch all data — hard caps prevent OOM on large datasets
     const [patients, visits, appointments] = await Promise.all([
       prisma.patient.findMany({
         orderBy: { createdAt: 'desc' },
+        take: 10_000,
       }),
       includeVisits ? prisma.visit.findMany({
         include: { patient: true },
         orderBy: { visitDate: 'desc' },
+        take: 100_000,
       }) : Promise.resolve([]),
       includeAppointments ? prisma.appointment.findMany({
         include: { patient: true },
         orderBy: { appointmentDate: 'desc' },
+        take: 50_000,
       }) : Promise.resolve([]),
     ]);
     

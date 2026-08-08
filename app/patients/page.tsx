@@ -7,9 +7,6 @@ import { Users } from 'lucide-react';
 // Force dynamic rendering - don't pre-render at build time
 export const dynamic = 'force-dynamic';
 
-// Cache patients page for 2 minutes
-export const revalidate = 120;
-
 interface PatientsPageProps {
   searchParams?: {
     search?: string;
@@ -72,30 +69,33 @@ const PatientsPage = async ({ searchParams }: PatientsPageProps) => {
     };
   }
 
-  const patients = await prisma.patient.findMany({
-    where: whereClause,
-    include: {
-      visits: {
-        select: {
-          visitDate: true,
+  const [patients, totalPatients] = await Promise.all([
+    prisma.patient.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        patientId: true,
+        name: true,
+        age: true,
+        gender: true,
+        contact: true,
+        // Only pull the most-recent visit date for "Last Visit" column
+        visits: {
+          select: { visitDate: true },
+          orderBy: { visitDate: 'desc' },
+          take: 1,
         },
-        orderBy: {
-          visitDate: 'desc',
+        // Use _count so the "Visits" column always shows the real total
+        _count: {
+          select: { visits: true },
         },
-        take: 1,
       },
-    },
-    skip: (currentPage - 1) * perPage,
-    take: perPage,
-    orderBy: {
-      updatedAt: 'desc',
-    },
-  });
-
-  const totalPatients = await prisma.patient.count({ where: whereClause });
-  const patientsWithRecords = await prisma.patient.count({
-    where: { visits: { some: { signs: { not: null } } } },
-  });
+      skip: (currentPage - 1) * perPage,
+      take: perPage,
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.patient.count({ where: whereClause }),
+  ]);
 
   return (
     <div className="space-y-5">
@@ -106,7 +106,6 @@ const PatientsPage = async ({ searchParams }: PatientsPageProps) => {
         subtitle="Manage and track all patient information"
         stats={[
           { label: 'Total', value: totalPatients.toLocaleString('en-IN') },
-          { label: 'With Records', value: patientsWithRecords.toLocaleString('en-IN') },
         ]}
       />
       <Suspense fallback={
