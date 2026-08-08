@@ -130,6 +130,7 @@ export async function PUT(
       include: {
         visits: {
           orderBy: { visitDate: 'desc' },
+          take: 20, // cap response size — caller can paginate for full history
           include: { medications: true },
         },
       },
