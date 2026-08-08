@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,7 +109,7 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Failed to fetch appointments:', error);
+    logger.error('Failed to fetch appointments', error);
     return NextResponse.json(
       { message: 'Failed to fetch appointments' },
       { status: 500 }
@@ -160,7 +161,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(appointment, { status: 201 });
   } catch (error: unknown) {
-    console.error('Failed to create appointment:', error);
+    logger.error('Failed to create appointment', error);
     const { sanitizeErrorForClient } = await import('@/lib/sanitize-error');
     return NextResponse.json(
       { message: sanitizeErrorForClient(error) },

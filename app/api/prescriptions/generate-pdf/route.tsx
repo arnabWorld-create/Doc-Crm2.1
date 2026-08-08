@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import prisma from '@/lib/prisma';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -362,7 +363,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ url: null, base64: b64, warning: 'Supabase not configured — PDF not uploaded' });
 
   } catch (err) {
-    console.error('PDF generation failed:', err);
-    return Response.json({ error: String(err) }, { status: 500 });
+    logger.error('PDF generation failed', err);
+    return Response.json({ error: 'PDF generation failed. Please try again.' }, { status: 500 });
   }
 }

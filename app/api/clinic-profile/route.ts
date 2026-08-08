@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
+
+const updateClinicProfileSchema = z.object({
+  clinicName:          z.string().max(200).optional(),
+  address:             z.string().max(500).optional().nullable(),
+  city:                z.string().max(100).optional().nullable(),
+  state:               z.string().max(100).optional().nullable(),
+  pincode:             z.string().max(20).optional().nullable(),
+  phone:               z.string().max(20).optional().nullable(),
+  email:               z.string().email().max(200).optional().nullable(),
+  website:             z.string().url().max(300).optional().nullable(),
+  workingHours:        z.string().max(300).optional().nullable(),
+  doctorName:          z.string().max(200).optional().nullable(),
+  doctorQualification: z.string().max(300).optional().nullable(),
+  registrationNumber:  z.string().max(100).optional().nullable(),
+  specialization:      z.string().max(200).optional().nullable(),
+  tagline:             z.string().max(300).optional().nullable(),
+  invoiceHeader:       z.string().max(1000).optional().nullable(),
+  invoiceFooter:       z.string().max(1000).optional().nullable(),
+  receiptHeader:       z.string().max(1000).optional().nullable(),
+  receiptFooter:       z.string().max(1000).optional().nullable(),
+});
 
 // GET - Fetch clinic profile
 export async function GET(req: NextRequest) {
@@ -12,7 +35,6 @@ export async function GET(req: NextRequest) {
   try {
     let profile = await prisma.clinicProfile.findFirst();
 
-    // If no profile exists, create default one
     if (!profile) {
       profile = await prisma.clinicProfile.create({
         data: {
@@ -24,7 +46,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(profile);
   } catch (error) {
-    console.error('Failed to fetch clinic profile:', error);
+    logger.error('Failed to fetch clinic profile', error);
     return NextResponse.json(
       { message: 'Failed to fetch clinic profile' },
       { status: 500 }
@@ -38,46 +60,34 @@ export async function PUT(req: NextRequest) {
   if (error) return error;
 
   try {
-    const body = await req.json();
+    const rawBody = await req.json();
+    const parsed = updateClinicProfileSchema.safeParse(rawBody);
 
-    // Get existing profile or create new one
+    if (!parsed.success) {
+      return NextResponse.json(
+        { message: 'Invalid input', errors: parsed.error.flatten().fieldErrors },
+        { status: 422 }
+      );
+    }
+
+    const body = parsed.data;
+
     let profile = await prisma.clinicProfile.findFirst();
 
     if (profile) {
-      // Update existing
       profile = await prisma.clinicProfile.update({
         where: { id: profile.id },
-        data: {
-          clinicName: body.clinicName,
-          address: body.address,
-          city: body.city,
-          state: body.state,
-          pincode: body.pincode,
-          phone: body.phone,
-          email: body.email,
-          website: body.website,
-          workingHours: body.workingHours,
-          doctorName: body.doctorName,
-          doctorQualification: body.doctorQualification,
-          registrationNumber: body.registrationNumber,
-          specialization: body.specialization,
-          tagline: body.tagline,
-          invoiceHeader: body.invoiceHeader,
-          invoiceFooter: body.invoiceFooter,
-          receiptHeader: body.receiptHeader,
-          receiptFooter: body.receiptFooter,
-        },
+        data: body,
       });
     } else {
-      // Create new
       profile = await prisma.clinicProfile.create({
-        data: body,
+        data: { clinicName: 'DoXcia', ...body },
       });
     }
 
     return NextResponse.json(profile);
   } catch (error) {
-    console.error('Failed to update clinic profile:', error);
+    logger.error('Failed to update clinic profile', error);
     return NextResponse.json(
       { message: 'Failed to update clinic profile' },
       { status: 500 }

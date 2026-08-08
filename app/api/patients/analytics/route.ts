@@ -101,20 +101,17 @@ export const GET = withMiddleware(
       // ── Step 2: No cache or time-filtered request ──
       // Push ALL the aggregation work into PostgreSQL.
       // We never pull raw visit rows into Node.js — the DB does the math.
+      //
+      // SECURITY: switched from $queryRawUnsafe (string interpolation) to
+      // $queryRaw (tagged template) so every value is a parameterized bind
+      // variable. Zero SQL injection risk regardless of input.
       const dateFilter = resolveDateFilter(timeRange);
-      // Each subquery uses a different alias — generate the correct condition per alias.
-      // Using a single `dateCondition` with alias "v" was causing PostgreSQL error
-      // "subquery uses ungrouped column v.visitDate from outer query" because the
-      // inner subqueries use aliases v2/v3/v4, not v.
-      const dateCondition   = dateFilter ? `AND v."visitDate"  >= '${dateFilter.toISOString()}'` : '';
-      const dateConditionV2 = dateFilter ? `AND v2."visitDate" >= '${dateFilter.toISOString()}'` : '';
-      const dateConditionV3 = dateFilter ? `AND v3."visitDate" >= '${dateFilter.toISOString()}'` : '';
-      const dateConditionV4 = dateFilter ? `AND v4."visitDate" >= '${dateFilter.toISOString()}'` : '';
-      const invoiceDateCondition = dateFilter
-        ? `AND i."createdAt" >= '${dateFilter.toISOString()}'`
-        : '';
+      const dateTs = dateFilter ?? new Date(0); // epoch = "all time" sentinel
+      const useDate = dateFilter !== undefined;
 
-      // One aggregation query — safe at any patient count
+      // One aggregation query — safe at any patient count.
+      // Two variants (with/without date) avoid injecting conditional SQL
+      // fragments while keeping all user-supplied values as bind params.
       type AggRow = {
         id: string;
         patientId: string;
@@ -124,93 +121,145 @@ export const GET = withMiddleware(
         total_fees: number;
         first_visit: Date | null;
         last_visit: Date | null;
-        paid_by_counts: string | null;   // JSON
-        monthly_data: string | null;     // JSON
-        recent_visits: string | null;    // JSON
+        paid_by_counts: string | null;
+        monthly_data: string | null;
+        recent_visits: string | null;
         invoice_total: number;
       };
 
-      const rows = await prisma.$queryRawUnsafe<AggRow[]>(`
-        SELECT
-          p.id,
-          p."patientId",
-          p.name,
-          p.contact,
-
-          -- visit counts and dates
-          COUNT(DISTINCT v.id)::bigint        AS total_visits,
-          MIN(v."visitDate")                  AS first_visit,
-          MAX(v."visitDate")                  AS last_visit,
-
-          -- total fees from visit_fees
-          COALESCE(SUM(vf.total), 0)          AS total_fees,
-
-          -- payment method breakdown as JSON
-          (
-            SELECT json_object_agg(paid_by, cnt)
-            FROM (
-              SELECT v2."paidBy" AS paid_by, COUNT(*) AS cnt
-              FROM visits v2
-              WHERE v2."patientId" = p.id
-                AND v2."paidBy" IS NOT NULL
-                ${dateConditionV2}
-              GROUP BY v2."paidBy"
-            ) pm
-          )                                   AS paid_by_counts,
-
-          -- last 12 months monthly breakdown as JSON
-          (
-            SELECT json_agg(monthly ORDER BY month)
-            FROM (
-              SELECT
-                to_char(v3."visitDate", 'YYYY-MM') AS month,
-                COUNT(*)                           AS visits,
-                COALESCE(SUM(vf3.total), 0)        AS fees
-              FROM visits v3
-              LEFT JOIN visit_fees vf3 ON vf3."visitId" = v3.id
-              WHERE v3."patientId" = p.id
-                ${dateConditionV3}
-              GROUP BY to_char(v3."visitDate", 'YYYY-MM')
-              ORDER BY month DESC
-              LIMIT 12
-            ) monthly
-          )                                   AS monthly_data,
-
-          -- last 5 visits as JSON
-          (
-            SELECT json_agg(rv ORDER BY rv."visitDate" DESC)
-            FROM (
-              SELECT
-                v4.id,
-                v4."visitDate",
-                v4."visitType",
-                v4."paidBy",
-                COALESCE(SUM(vf4.total), 0) AS fees
-              FROM visits v4
-              LEFT JOIN visit_fees vf4 ON vf4."visitId" = v4.id
-              WHERE v4."patientId" = p.id
-                ${dateConditionV4}
-              GROUP BY v4.id, v4."visitDate", v4."visitType", v4."paidBy"
-              ORDER BY v4."visitDate" DESC
-              LIMIT 5
-            ) rv
-          )                                   AS recent_visits,
-
-          -- paid invoice total (for max() comparison)
-          COALESCE((
-            SELECT SUM(i.amount)
-            FROM invoices i
-            WHERE i."patientId" = p.id
-              AND i.status = 'paid'
-              ${invoiceDateCondition}
-          ), 0)                               AS invoice_total
-
-        FROM patients p
-        LEFT JOIN visits v   ON v."patientId" = p.id ${dateCondition}
-        LEFT JOIN visit_fees vf ON vf."visitId" = v.id
-        GROUP BY p.id
-        HAVING COUNT(DISTINCT v.id) >= ${minVisits}
-      `);
+      const rows = useDate
+        ? await prisma.$queryRaw<AggRow[]>`
+            SELECT
+              p.id,
+              p."patientId",
+              p.name,
+              p.contact,
+              COUNT(DISTINCT v.id)::bigint        AS total_visits,
+              MIN(v."visitDate")                  AS first_visit,
+              MAX(v."visitDate")                  AS last_visit,
+              COALESCE(SUM(vf.total), 0)          AS total_fees,
+              (
+                SELECT json_object_agg(paid_by, cnt)
+                FROM (
+                  SELECT v2."paidBy" AS paid_by, COUNT(*) AS cnt
+                  FROM visits v2
+                  WHERE v2."patientId" = p.id
+                    AND v2."paidBy" IS NOT NULL
+                    AND v2."visitDate" >= ${dateTs}
+                  GROUP BY v2."paidBy"
+                ) pm
+              )                                   AS paid_by_counts,
+              (
+                SELECT json_agg(monthly ORDER BY month)
+                FROM (
+                  SELECT
+                    to_char(v3."visitDate", 'YYYY-MM') AS month,
+                    COUNT(*)                           AS visits,
+                    COALESCE(SUM(vf3.total), 0)        AS fees
+                  FROM visits v3
+                  LEFT JOIN visit_fees vf3 ON vf3."visitId" = v3.id
+                  WHERE v3."patientId" = p.id
+                    AND v3."visitDate" >= ${dateTs}
+                  GROUP BY to_char(v3."visitDate", 'YYYY-MM')
+                  ORDER BY month DESC
+                  LIMIT 12
+                ) monthly
+              )                                   AS monthly_data,
+              (
+                SELECT json_agg(rv ORDER BY rv."visitDate" DESC)
+                FROM (
+                  SELECT
+                    v4.id,
+                    v4."visitDate",
+                    v4."visitType",
+                    v4."paidBy",
+                    COALESCE(SUM(vf4.total), 0) AS fees
+                  FROM visits v4
+                  LEFT JOIN visit_fees vf4 ON vf4."visitId" = v4.id
+                  WHERE v4."patientId" = p.id
+                    AND v4."visitDate" >= ${dateTs}
+                  GROUP BY v4.id, v4."visitDate", v4."visitType", v4."paidBy"
+                  ORDER BY v4."visitDate" DESC
+                  LIMIT 5
+                ) rv
+              )                                   AS recent_visits,
+              COALESCE((
+                SELECT SUM(i.amount)
+                FROM invoices i
+                WHERE i."patientId" = p.id
+                  AND i.status = 'paid'
+                  AND i."createdAt" >= ${dateTs}
+              ), 0)                               AS invoice_total
+            FROM patients p
+            LEFT JOIN visits v   ON v."patientId" = p.id AND v."visitDate" >= ${dateTs}
+            LEFT JOIN visit_fees vf ON vf."visitId" = v.id
+            GROUP BY p.id
+            HAVING COUNT(DISTINCT v.id) >= ${minVisits}
+          `
+        : await prisma.$queryRaw<AggRow[]>`
+            SELECT
+              p.id,
+              p."patientId",
+              p.name,
+              p.contact,
+              COUNT(DISTINCT v.id)::bigint        AS total_visits,
+              MIN(v."visitDate")                  AS first_visit,
+              MAX(v."visitDate")                  AS last_visit,
+              COALESCE(SUM(vf.total), 0)          AS total_fees,
+              (
+                SELECT json_object_agg(paid_by, cnt)
+                FROM (
+                  SELECT v2."paidBy" AS paid_by, COUNT(*) AS cnt
+                  FROM visits v2
+                  WHERE v2."patientId" = p.id
+                    AND v2."paidBy" IS NOT NULL
+                  GROUP BY v2."paidBy"
+                ) pm
+              )                                   AS paid_by_counts,
+              (
+                SELECT json_agg(monthly ORDER BY month)
+                FROM (
+                  SELECT
+                    to_char(v3."visitDate", 'YYYY-MM') AS month,
+                    COUNT(*)                           AS visits,
+                    COALESCE(SUM(vf3.total), 0)        AS fees
+                  FROM visits v3
+                  LEFT JOIN visit_fees vf3 ON vf3."visitId" = v3.id
+                  WHERE v3."patientId" = p.id
+                  GROUP BY to_char(v3."visitDate", 'YYYY-MM')
+                  ORDER BY month DESC
+                  LIMIT 12
+                ) monthly
+              )                                   AS monthly_data,
+              (
+                SELECT json_agg(rv ORDER BY rv."visitDate" DESC)
+                FROM (
+                  SELECT
+                    v4.id,
+                    v4."visitDate",
+                    v4."visitType",
+                    v4."paidBy",
+                    COALESCE(SUM(vf4.total), 0) AS fees
+                  FROM visits v4
+                  LEFT JOIN visit_fees vf4 ON vf4."visitId" = v4.id
+                  WHERE v4."patientId" = p.id
+                  GROUP BY v4.id, v4."visitDate", v4."visitType", v4."paidBy"
+                  ORDER BY v4."visitDate" DESC
+                  LIMIT 5
+                ) rv
+              )                                   AS recent_visits,
+              COALESCE((
+                SELECT SUM(i.amount)
+                FROM invoices i
+                WHERE i."patientId" = p.id
+                  AND i.status = 'paid'
+              ), 0)                               AS invoice_total
+            FROM patients p
+            LEFT JOIN visits v   ON v."patientId" = p.id
+            LEFT JOIN visit_fees vf ON vf."visitId" = v.id
+            GROUP BY p.id
+            HAVING COUNT(DISTINCT v.id) >= ${minVisits}
+          `;
 
       // Shape DB rows into analytics objects — pure number crunching, no extra queries
       const analyticsData: PatientAnalytics[] = rows.map(row => {

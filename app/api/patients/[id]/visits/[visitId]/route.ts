@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,11 +33,8 @@ export async function GET(
 
     return NextResponse.json(visit);
   } catch (error) {
-    console.error('Failed to fetch visit:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch visit' },
-      { status: 500 }
-    );
+    logger.error('Failed to fetch visit', error);
+    return NextResponse.json({ message: 'Failed to fetch visit' }, { status: 500 });
   }
 }
 
@@ -132,11 +130,8 @@ export async function PUT(
 
     return NextResponse.json(visit);
   } catch (error) {
-    console.error('Failed to update visit:', error);
-    return NextResponse.json(
-      { message: 'Failed to update visit' },
-      { status: 500 }
-    );
+    logger.error('Failed to update visit', error);
+    return NextResponse.json({ message: 'Failed to update visit' }, { status: 500 });
   }
 }
 
@@ -158,10 +153,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Visit deleted successfully' });
   } catch (error) {
-    console.error('Failed to delete visit:', error);
-    return NextResponse.json(
-      { message: 'Failed to delete visit' },
-      { status: 500 }
-    );
+    logger.error('Failed to delete visit', error);
+    return NextResponse.json({ message: 'Failed to delete visit' }, { status: 500 });
   }
 }

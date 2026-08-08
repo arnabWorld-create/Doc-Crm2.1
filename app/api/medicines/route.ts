@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,11 +20,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(customMedicines);
   } catch (error) {
-    console.error('Failed to fetch custom medicines:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch medicines' },
-      { status: 500 }
-    );
+    logger.error('Failed to fetch custom medicines', error);
+    return NextResponse.json({ message: 'Failed to fetch medicines' }, { status: 500 });
   }
 }
 
@@ -72,10 +70,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(newMedicine, { status: 201 });
     }
   } catch (error) {
-    console.error('Failed to save custom medicine:', error);
-    return NextResponse.json(
-      { message: 'Failed to save medicine' },
-      { status: 500 }
-    );
+    logger.error('Failed to save custom medicine', error);
+    return NextResponse.json({ message: 'Failed to save medicine' }, { status: 500 });
   }
 }

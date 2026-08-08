@@ -166,8 +166,8 @@ export async function POST(request: NextRequest) {
                 failedCount++;
                 let errorMessage = err.message || 'Unknown error';
                 
-                // Log detailed error for debugging
-                console.error(`Row ${rowIndex + 2} error:`, {
+                // Log detailed error for debugging (server-side only)
+                logger.error(`Import row ${rowIndex + 2} failed`, err, {
                   message: err.message,
                   code: err.code,
                   meta: err.meta,

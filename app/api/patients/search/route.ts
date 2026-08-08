@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchPatients } from '@/lib/patientUtils';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,10 +21,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(patients);
   } catch (error) {
-    console.error('Search error:', error);
-    return NextResponse.json(
-      { message: 'Search failed' },
-      { status: 500 }
-    );
+    logger.error('Search error', error);
+    return NextResponse.json({ message: 'Search failed' }, { status: 500 });
   }
 }

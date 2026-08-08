@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +21,10 @@ function getSupabaseAdminClient() {
  * so it can be shared via WhatsApp.
  */
 export async function POST(request: NextRequest) {
+  // Auth check — must be a logged-in user with patient read permission
+  const { error: authError } = await requirePermission(request, 'patients', 'read');
+  if (authError) return authError;
+
   try {
     const formData = await request.formData();
     const pdfFile = formData.get('pdf') as File | null;
@@ -56,13 +62,14 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      return Response.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 });
+      return Response.json({ error: 'Upload failed. Please try again.' }, { status: 500 });
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(storagePath);
 
     return Response.json({ url: data.publicUrl });
   } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
+    logger.error('PDF upload failed', err);
+    return Response.json({ error: 'Upload failed. Please try again.' }, { status: 500 });
   }
 }

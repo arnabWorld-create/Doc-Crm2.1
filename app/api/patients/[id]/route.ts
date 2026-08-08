@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { requirePermission } from '@/lib/rbac';
+import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,11 +56,8 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('Failed to fetch patient:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch patient' },
-      { status: 500 }
-    );
+    logger.error('Failed to fetch patient', error);
+    return NextResponse.json({ message: 'Failed to fetch patient' }, { status: 500 });
   }
 }
 
@@ -139,11 +137,8 @@ export async function PUT(
 
     return NextResponse.json(patient);
   } catch (error) {
-    console.error('Failed to update patient:', error);
-    return NextResponse.json(
-      { message: 'Failed to update patient' },
-      { status: 500 }
-    );
+    logger.error('Failed to update patient', error);
+    return NextResponse.json({ message: 'Failed to update patient' }, { status: 500 });
   }
 }
 
@@ -162,10 +157,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Patient deleted successfully' });
   } catch (error) {
-    console.error('Failed to delete patient:', error);
-    return NextResponse.json(
-      { message: 'Failed to delete patient' },
-      { status: 500 }
-    );
+    logger.error('Failed to delete patient', error);
+    return NextResponse.json({ message: 'Failed to delete patient' }, { status: 500 });
   }
 }
