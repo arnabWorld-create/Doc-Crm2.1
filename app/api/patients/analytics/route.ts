@@ -102,9 +102,14 @@ export const GET = withMiddleware(
       // Push ALL the aggregation work into PostgreSQL.
       // We never pull raw visit rows into Node.js — the DB does the math.
       const dateFilter = resolveDateFilter(timeRange);
-      const dateCondition = dateFilter
-        ? `AND v."visitDate" >= '${dateFilter.toISOString()}'`
-        : '';
+      // Each subquery uses a different alias — generate the correct condition per alias.
+      // Using a single `dateCondition` with alias "v" was causing PostgreSQL error
+      // "subquery uses ungrouped column v.visitDate from outer query" because the
+      // inner subqueries use aliases v2/v3/v4, not v.
+      const dateCondition   = dateFilter ? `AND v."visitDate"  >= '${dateFilter.toISOString()}'` : '';
+      const dateConditionV2 = dateFilter ? `AND v2."visitDate" >= '${dateFilter.toISOString()}'` : '';
+      const dateConditionV3 = dateFilter ? `AND v3."visitDate" >= '${dateFilter.toISOString()}'` : '';
+      const dateConditionV4 = dateFilter ? `AND v4."visitDate" >= '${dateFilter.toISOString()}'` : '';
       const invoiceDateCondition = dateFilter
         ? `AND i."createdAt" >= '${dateFilter.toISOString()}'`
         : '';
@@ -148,7 +153,7 @@ export const GET = withMiddleware(
               FROM visits v2
               WHERE v2."patientId" = p.id
                 AND v2."paidBy" IS NOT NULL
-                ${dateCondition}
+                ${dateConditionV2}
               GROUP BY v2."paidBy"
             ) pm
           )                                   AS paid_by_counts,
@@ -164,7 +169,7 @@ export const GET = withMiddleware(
               FROM visits v3
               LEFT JOIN visit_fees vf3 ON vf3."visitId" = v3.id
               WHERE v3."patientId" = p.id
-                ${dateCondition}
+                ${dateConditionV3}
               GROUP BY to_char(v3."visitDate", 'YYYY-MM')
               ORDER BY month DESC
               LIMIT 12
@@ -184,7 +189,7 @@ export const GET = withMiddleware(
               FROM visits v4
               LEFT JOIN visit_fees vf4 ON vf4."visitId" = v4.id
               WHERE v4."patientId" = p.id
-                ${dateCondition}
+                ${dateConditionV4}
               GROUP BY v4.id, v4."visitDate", v4."visitType", v4."paidBy"
               ORDER BY v4."visitDate" DESC
               LIMIT 5
@@ -227,21 +232,33 @@ export const GET = withMiddleware(
         else if (visitsPerMonth >= 0.5) visitFrequency = 'Medium';
         else                       visitFrequency = 'Low';
 
+        // Prisma $queryRawUnsafe returns PostgreSQL json/jsonb columns as
+        // already-parsed JS objects, NOT as strings. Using JSON.parse() on
+        // them throws "is not valid JSON" because JSON.parse coerces the
+        // object to "[object Object]" first. We need to handle both cases:
+        // already-parsed (object) and raw string (fallback safety).
+        const parseJsonField = <T>(field: unknown, fallback: T): T => {
+          if (field === null || field === undefined) return fallback;
+          if (typeof field === 'string') {
+            try { return JSON.parse(field) as T; } catch { return fallback; }
+          }
+          return field as unknown as T;
+        };
+
         const paymentMethods: { [key: string]: number } =
-          row.paid_by_counts ? JSON.parse(row.paid_by_counts) : {};
+          parseJsonField(row.paid_by_counts, {});
 
         const monthlyVisits: { month: string; visits: number; fees: number }[] =
-          row.monthly_data ? JSON.parse(row.monthly_data) : [];
+          parseJsonField(row.monthly_data, []);
 
-        const recentVisits = row.recent_visits
-          ? (JSON.parse(row.recent_visits) as any[]).map(v => ({
-              id:        v.id,
-              visitDate: new Date(v.visitDate).toISOString(),
-              visitType: v.visitType,
-              fees:      Number(v.fees),
-              paidBy:    v.paidBy ?? undefined,
-            }))
-          : [];
+        const rawRecentVisits = parseJsonField<any[]>(row.recent_visits, []);
+        const recentVisits = rawRecentVisits.map(v => ({
+          id:        v.id,
+          visitDate: new Date(v.visitDate).toISOString(),
+          visitType: v.visitType,
+          fees:      Number(v.fees),
+          paidBy:    v.paidBy ?? undefined,
+        }));
 
         return {
           id:                   row.id,

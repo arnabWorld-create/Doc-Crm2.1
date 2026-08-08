@@ -1,6 +1,8 @@
 import PatientTable from '@/components/PatientTable';
 import prisma from '@/lib/prisma';
 import { Suspense } from 'react';
+import { PageHero } from '@/components/ui/page-hero';
+import { Users } from 'lucide-react';
 
 // Force dynamic rendering - don't pre-render at build time
 export const dynamic = 'force-dynamic';
@@ -91,21 +93,22 @@ const PatientsPage = async ({ searchParams }: PatientsPageProps) => {
   });
 
   const totalPatients = await prisma.patient.count({ where: whereClause });
+  const patientsWithRecords = await prisma.patient.count({
+    where: { visits: { some: { signs: { not: null } } } },
+  });
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
-            Patient Records
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage and track all patient information</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-400 font-medium">Total</span>
-          <span className="text-2xl font-extrabold text-brand-teal leading-none">{totalPatients}</span>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="Patient Management"
+        eyebrowIcon={<Users className="h-3.5 w-3.5" />}
+        title="Patient Records"
+        subtitle="Manage and track all patient information"
+        stats={[
+          { label: 'Total', value: totalPatients.toLocaleString('en-IN') },
+          { label: 'With Records', value: patientsWithRecords.toLocaleString('en-IN') },
+        ]}
+      />
       <Suspense fallback={
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-10 w-10 border-4 border-brand-teal border-b-transparent"></div>

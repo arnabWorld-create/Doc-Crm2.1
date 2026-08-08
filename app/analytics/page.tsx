@@ -1,17 +1,17 @@
 import prisma from '@/lib/prisma';
 import {
   Users, Calendar, TrendingUp, Activity,
-  UserCheck, Clock, AlertCircle, CheckCircle, Stethoscope,
+  UserCheck, Clock, AlertCircle, CheckCircle,
+  Stethoscope, ArrowUpRight, ArrowDownRight,
+  BarChart2, Heart, Zap,
 } from 'lucide-react';
 import { unstable_cache } from 'next/cache';
-import { StatCard } from '@/components/ui/stat-card';
-import { PageHeader } from '@/components/ui/page-header';
 import nextDynamic from 'next/dynamic';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
-// Lazy-load Recharts components (client-only)
+// Lazy-load chart components (client-only)
 const WeeklyRegistrationsChart = nextDynamic(
   () => import('@/components/AnalyticsCharts').then((m) => ({ default: m.WeeklyRegistrationsChart })),
   { ssr: false }
@@ -66,13 +66,10 @@ const getCachedMedicalAnalysis = unstable_cache(
     const medicineCount = groupMedicines(allMedicines);
 
     const topConditions = Object.entries(conditionCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
+      .sort((a, b) => b[1] - a[1]).slice(0, 10)
       .map(([name, count]) => ({ name, count }));
-
     const topMedicines = Object.entries(medicineCount)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
+      .sort((a, b) => b[1] - a[1]).slice(0, 10)
       .map(([name, count]) => ({ name, count }));
 
     return { topConditions, topMedicines };
@@ -89,15 +86,13 @@ const AnalyticsPage = async () => {
   const endOfLastMonth   = new Date(today.getFullYear(), today.getMonth(), 0);
   const startOfWeek      = new Date(today);
   startOfWeek.setDate(today.getDate() - today.getDay());
-
   const todayStart = new Date(today); todayStart.setHours(0, 0, 0, 0);
   const todayEnd   = new Date(today); todayEnd.setHours(23, 59, 59, 999);
-
   const eightWeeksAgo = new Date(today);
   eightWeeksAgo.setDate(today.getDate() - 7 * 7);
   eightWeeksAgo.setHours(0, 0, 0, 0);
 
-  // ── Patient stats ──────────────────────────────────────────────────────────
+  // ── DB queries ─────────────────────────────────────────────────────────────
   const patientStats = await prisma.$queryRaw<Array<{
     total: bigint; this_month: bigint; last_month: bigint; this_week: bigint;
     with_records: bigint; male: bigint; female: bigint; other: bigint;
@@ -122,15 +117,14 @@ const AnalyticsPage = async () => {
   `;
 
   const s = patientStats[0];
-  const totalPatients              = Number(s.total);
-  const patientsThisMonth          = Number(s.this_month);
-  const patientsLastMonth          = Number(s.last_month);
-  const patientsThisWeek           = Number(s.this_week);
+  const totalPatients               = Number(s.total);
+  const patientsThisMonth           = Number(s.this_month);
+  const patientsLastMonth           = Number(s.last_month);
+  const patientsThisWeek            = Number(s.this_week);
   const patientsWithCompleteRecords = Number(s.with_records);
-  const maleCount                  = Number(s.male);
-  const femaleCount                = Number(s.female);
-  const otherCount                 = Number(s.other);
-
+  const maleCount                   = Number(s.male);
+  const femaleCount                 = Number(s.female);
+  const otherCount                  = Number(s.other);
   const ageGroups = {
     '0-18':  Number(s.age_0_18),
     '19-35': Number(s.age_19_35),
@@ -139,14 +133,12 @@ const AnalyticsPage = async () => {
     '65+':   Number(s.age_65_plus),
   };
 
-  // ── Weekly patient data ────────────────────────────────────────────────────
   const recentPatients = await prisma.patient.findMany({
     select: { createdAt: true },
     where: { createdAt: { gte: eightWeeksAgo } },
     orderBy: { createdAt: 'asc' },
   });
 
-  // ── Visit stats ────────────────────────────────────────────────────────────
   const visitStats = await prisma.$queryRaw<Array<{
     today: bigint; upcoming: bigint; this_week: bigint; overdue: bigint;
   }>>`
@@ -164,7 +156,6 @@ const AnalyticsPage = async () => {
   const followUpsThisWeek  = Number(v.this_week);
   const overdueFollowUps   = Number(v.overdue);
 
-  // ── Appointment stats ──────────────────────────────────────────────────────
   const appointmentStats = await prisma.$queryRaw<Array<{
     total: bigint; with_patient: bigint; without_patient: bigint;
   }>>`
@@ -176,22 +167,23 @@ const AnalyticsPage = async () => {
   `;
 
   const a = appointmentStats[0];
-  const totalAppointments       = Number(a.total);
-  const oldPatientAppointments  = Number(a.with_patient);
-  const newPatientAppointments  = Number(a.without_patient);
+  const totalAppointments      = Number(a.total);
+  const oldPatientAppointments = Number(a.with_patient);
+  const newPatientAppointments = Number(a.without_patient);
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const avgPatientsPerDay = (patientsThisMonth / today.getDate()).toFixed(1);
+  const avgPatientsPerDay = (patientsThisMonth / Math.max(1, today.getDate())).toFixed(1);
   const growthRate = patientsLastMonth > 0
     ? ((patientsThisMonth - patientsLastMonth) / patientsLastMonth * 100).toFixed(1)
     : '0';
+  const growthPositive = Number(growthRate) >= 0;
   const completionRate = totalPatients > 0
     ? ((patientsWithCompleteRecords / totalPatients) * 100).toFixed(1)
     : '0';
 
   const { topConditions, topMedicines } = await getCachedMedicalAnalysis();
 
-  // ── Build weekly chart data ────────────────────────────────────────────────
+  // ── Weekly chart data ──────────────────────────────────────────────────────
   const weeksData: Array<{ label: string; count: number }> = [];
   for (let i = 7; i >= 0; i--) {
     const wStart = new Date(today);
@@ -206,203 +198,352 @@ const AnalyticsPage = async () => {
     weeksData.push({ label: `W${8 - i}`, count });
   }
 
+  const totalWeeklyPatients = weeksData.reduce((s, w) => s + w.count, 0);
+  const weeklyAvg = (totalWeeklyPatients / weeksData.length).toFixed(1);
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Analytics Dashboard"
-        subtitle="Real-time insights and performance metrics for DoXcia"
-      />
+    <div className="space-y-6 pb-8">
 
-      {/* ── Key Metrics ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          variant="teal"
-          title="Total Patients Registered"
-          value={totalPatients}
-          icon={<Users className="h-5 w-5 sm:h-6 sm:w-6" />}
-          badge={<span className="bg-white/20 px-2 py-0.5 rounded text-xs">All Time</span>}
-        />
-        <StatCard
-          variant="white-teal"
-          title="New Patients This Month"
-          value={patientsThisMonth}
-          icon={<TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />}
-          badge={
-            <span className={`px-2 py-0.5 rounded text-xs font-bold ${Number(growthRate) >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {Number(growthRate) >= 0 ? '+' : ''}{growthRate}%
-            </span>
-          }
-        />
-        <StatCard
-          variant="yellow"
-          title="New Patients This Week"
-          value={patientsThisWeek}
-          icon={<Calendar className="h-5 w-5 sm:h-6 sm:w-6" />}
-          badge={<span className="bg-white/20 px-2 py-0.5 rounded text-xs">This Week</span>}
-        />
-        <StatCard
-          variant="white-red"
-          title="Consultations Today"
-          value={consultationsToday}
-          icon={<Stethoscope className="h-5 w-5 sm:h-6 sm:w-6" />}
-          badge={<span className="bg-red-50 text-brand-red px-2 py-0.5 rounded text-xs">Today</span>}
-        />
-      </div>
+      {/* ── Hero Header ─────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-teal via-brand-teal/90 to-[#005f5a] p-6 sm:p-8 text-white shadow-lg">
+        {/* Decorative circles */}
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/5" />
+        <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full bg-white/5" />
+        <div className="absolute top-1/2 right-24 w-20 h-20 rounded-full bg-white/5" />
 
-      {/* ── Follow-up Tracking ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard
-          variant="white-teal"
-          title="Follow-ups This Week"
-          value={followUpsThisWeek}
-          icon={<CheckCircle className="h-5 w-5 sm:h-6 sm:w-6" />}
-        />
-        <StatCard
-          variant="white-yellow"
-          title="Total Upcoming Follow-ups"
-          value={upcomingFollowUps}
-          icon={<Calendar className="h-5 w-5 sm:h-6 sm:w-6" />}
-        />
-        <StatCard
-          variant="white-red"
-          title="Overdue Follow-ups"
-          value={overdueFollowUps}
-          icon={<AlertCircle className="h-5 w-5 sm:h-6 sm:w-6" />}
-        />
-      </div>
-
-      {/* ── Charts: Appointments + Weekly Registrations ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Appointment Types donut */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-brand-teal">Appointment Types</h3>
-            <div className="p-2 bg-brand-teal/10 rounded-lg">
-              <UserCheck className="h-4 w-4 text-brand-teal" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-white/20 rounded-lg">
+                <BarChart2 className="h-4 w-4" />
+              </div>
+              <span className="text-white/70 text-xs font-medium uppercase tracking-widest">Analytics Dashboard</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Practice Overview</h1>
+            <p className="text-white/70 text-sm mt-1">
+              {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
+              <p className="text-2xl font-bold">{totalPatients.toLocaleString('en-IN')}</p>
+              <p className="text-white/70 text-xs mt-0.5">Total Patients</p>
+            </div>
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
+              <p className="text-2xl font-bold">{consultationsToday}</p>
+              <p className="text-white/70 text-xs mt-0.5">Today</p>
+            </div>
+            <div className="text-center bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 border border-white/10">
+              <p className={`text-2xl font-bold ${growthPositive ? 'text-green-300' : 'text-red-300'}`}>
+                {growthPositive ? '+' : ''}{growthRate}%
+              </p>
+              <p className="text-white/70 text-xs mt-0.5">Growth</p>
             </div>
           </div>
-          <AppointmentTypesChart
-            data={{ oldPatientAppointments, newPatientAppointments, totalAppointments }}
-          />
-          {totalAppointments > 0 && (
-            <p className="text-xs text-center text-gray-400 mt-2">
-              Total: <span className="font-semibold text-gray-600">{totalAppointments}</span> appointments
-            </p>
-          )}
+        </div>
+      </div>
+
+      {/* ── Primary KPI Row ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Total Patients */}
+        <div className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2.5 bg-brand-teal/10 rounded-xl group-hover:bg-brand-teal/20 transition-colors">
+              <Users className="h-5 w-5 text-brand-teal" />
+            </div>
+            <span className="text-xs font-semibold px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full">All Time</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{totalPatients.toLocaleString('en-IN')}</p>
+          <p className="text-sm text-gray-500 mt-1">Total Patients</p>
+          <div className="mt-3 pt-3 border-t border-gray-50">
+            <span className="text-xs text-gray-400">{patientsWithCompleteRecords} with complete records</span>
+          </div>
         </div>
 
-        {/* Weekly registrations bar chart */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
+        {/* This Month */}
+        <div className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-brand-teal">Weekly Patient Registrations</h3>
-            <div className="p-2 bg-brand-teal/10 rounded-lg">
-              <TrendingUp className="h-4 w-4 text-brand-teal" />
+            <div className="p-2.5 bg-green-50 rounded-xl group-hover:bg-green-100 transition-colors">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+            </div>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${growthPositive ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+              {growthPositive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+              {growthPositive ? '+' : ''}{growthRate}%
+            </span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{patientsThisMonth}</p>
+          <p className="text-sm text-gray-500 mt-1">New This Month</p>
+          <div className="mt-3 pt-3 border-t border-gray-50">
+            <span className="text-xs text-gray-400">vs {patientsLastMonth} last month</span>
+          </div>
+        </div>
+
+        {/* This Week */}
+        <div className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2.5 bg-brand-yellow/10 rounded-xl group-hover:bg-brand-yellow/20 transition-colors">
+              <Calendar className="h-5 w-5 text-brand-yellow" />
+            </div>
+            <span className="text-xs font-semibold px-2 py-0.5 bg-gray-50 text-gray-500 rounded-full">This Week</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{patientsThisWeek}</p>
+          <p className="text-sm text-gray-500 mt-1">New This Week</p>
+          <div className="mt-3 pt-3 border-t border-gray-50">
+            <span className="text-xs text-gray-400">{avgPatientsPerDay} avg per day</span>
+          </div>
+        </div>
+
+        {/* Consultations Today */}
+        <div className="group bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="p-2.5 bg-brand-red/10 rounded-xl group-hover:bg-brand-red/20 transition-colors">
+              <Stethoscope className="h-5 w-5 text-brand-red" />
+            </div>
+            <span className="text-xs font-semibold px-2 py-0.5 bg-red-50 text-brand-red rounded-full">Today</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{consultationsToday}</p>
+          <p className="text-sm text-gray-500 mt-1">Consultations Today</p>
+          <div className="mt-3 pt-3 border-t border-gray-50">
+            <span className="text-xs text-gray-400">{totalAppointments} total appointments</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Follow-up Strip ──────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+          <div className="p-3 bg-brand-teal/10 rounded-xl flex-shrink-0">
+            <CheckCircle className="h-5 w-5 text-brand-teal" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">{followUpsThisWeek}</p>
+            <p className="text-xs text-gray-500">Follow-ups This Week</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all">
+          <div className="p-3 bg-brand-yellow/10 rounded-xl flex-shrink-0">
+            <Clock className="h-5 w-5 text-brand-yellow" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-gray-900">{upcomingFollowUps}</p>
+            <p className="text-xs text-gray-500">Upcoming Follow-ups</p>
+          </div>
+        </div>
+        <div className={`flex items-center gap-4 rounded-2xl p-4 shadow-sm border transition-all hover:shadow-md ${overdueFollowUps > 0 ? 'bg-red-50 border-red-100' : 'bg-white border-gray-100'}`}>
+          <div className={`p-3 rounded-xl flex-shrink-0 ${overdueFollowUps > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+            <AlertCircle className={`h-5 w-5 ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-gray-400'}`} />
+          </div>
+          <div>
+            <p className={`text-2xl font-bold ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-gray-900'}`}>{overdueFollowUps}</p>
+            <p className="text-xs text-gray-500">Overdue Follow-ups</p>
+          </div>
+          {overdueFollowUps > 0 && (
+            <span className="ml-auto text-xs font-bold text-brand-red bg-red-100 px-2 py-0.5 rounded-full">Action needed</span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Charts Row 1 — Weekly + Appointments ─────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
+        {/* Weekly registrations — wider */}
+        <div className="lg:col-span-3 bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-gray-900">Weekly Patient Registrations</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Last 8 weeks</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <p className="text-sm font-bold text-brand-teal">{weeklyAvg}</p>
+                <p className="text-xs text-gray-400">avg / week</p>
+              </div>
+              <div className="p-2 bg-brand-teal/10 rounded-xl">
+                <TrendingUp className="h-4 w-4 text-brand-teal" />
+              </div>
             </div>
           </div>
           <WeeklyRegistrationsChart data={weeksData} />
-          <p className="text-xs text-center text-gray-400 mt-2">
-            8-week avg:{' '}
-            <span className="font-semibold text-brand-teal">
-              {(weeksData.reduce((s, w) => s + w.count, 0) / weeksData.length).toFixed(1)} patients/week
-            </span>
-          </p>
+        </div>
+
+        {/* Appointment types — narrower */}
+        <div className="lg:col-span-2 bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-gray-900">Appointment Types</h3>
+              <p className="text-xs text-gray-400 mt-0.5">{totalAppointments} total</p>
+            </div>
+            <div className="p-2 bg-brand-teal/10 rounded-xl">
+              <UserCheck className="h-4 w-4 text-brand-teal" />
+            </div>
+          </div>
+          <AppointmentTypesChart data={{ oldPatientAppointments, newPatientAppointments, totalAppointments }} />
         </div>
       </div>
 
-      {/* ── Performance Metrics ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Record Completion Rate */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-bold text-brand-teal mb-4">Record Completion Rate</h3>
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className="text-3xl sm:text-4xl font-bold text-brand-teal">{completionRate}%</p>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">
-                {patientsWithCompleteRecords} of {totalPatients} patients
-              </p>
-            </div>
-            <Activity className="h-8 w-8 text-brand-teal/20" />
-          </div>
-          <div className="w-full bg-gray-100 rounded-full h-3">
-            <div
-              className="bg-gradient-to-r from-brand-teal to-brand-teal/70 h-3 rounded-full transition-all"
-              style={{ width: `${completionRate}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-2">Patients with consultation, signs &amp; treatment recorded</p>
-        </div>
-
-        {/* Average Daily Patients */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-bold text-brand-teal mb-4">Average Daily Patients</h3>
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className="text-3xl sm:text-4xl font-bold text-brand-yellow">{avgPatientsPerDay}</p>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">patients per day</p>
-            </div>
-            <TrendingUp className="h-8 w-8 text-brand-yellow/20" />
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400">
-              Based on {patientsThisMonth} patients in {today.getDate()} days
-            </p>
-          </div>
-        </div>
-
-        {/* Follow-up Compliance */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-bold text-brand-teal mb-4">Follow-up Compliance</h3>
-          <div className="flex items-end justify-between mb-3">
-            <div>
-              <p className="text-3xl sm:text-4xl font-bold text-brand-red">{overdueFollowUps}</p>
-              <p className="text-xs sm:text-sm text-gray-500 mt-1">require attention</p>
-            </div>
-            <Clock className="h-8 w-8 text-brand-red/20" />
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400">
-              {upcomingFollowUps} upcoming appointments scheduled
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Demographics Charts ── */}
+      {/* ── Charts Row 2 — Demographics ──────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Gender Distribution pie */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-bold text-brand-teal mb-4">Gender Distribution</h3>
-          <GenderPieChart
-            data={{ maleCount, femaleCount, otherCount, totalPatients }}
-          />
+        {/* Gender */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-gray-900">Gender Distribution</h3>
+              <p className="text-xs text-gray-400 mt-0.5">{totalPatients} patients total</p>
+            </div>
+            <div className="p-2 bg-brand-teal/10 rounded-xl">
+              <Users className="h-4 w-4 text-brand-teal" />
+            </div>
+          </div>
+          {/* Mini legend */}
+          <div className="flex gap-4 mb-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-brand-teal" />
+              <span className="text-xs text-gray-500">Male <span className="font-semibold text-gray-700">{maleCount}</span></span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-brand-yellow" />
+              <span className="text-xs text-gray-500">Female <span className="font-semibold text-gray-700">{femaleCount}</span></span>
+            </div>
+            {otherCount > 0 && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-brand-red" />
+                <span className="text-xs text-gray-500">Other <span className="font-semibold text-gray-700">{otherCount}</span></span>
+              </div>
+            )}
+          </div>
+          <GenderPieChart data={{ maleCount, femaleCount, otherCount, totalPatients }} />
         </div>
 
-        {/* Age Distribution bar */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-base sm:text-lg font-bold text-brand-teal mb-4">Age Distribution</h3>
+        {/* Age Distribution */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-gray-900">Age Distribution</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Patients by age group</p>
+            </div>
+            <div className="p-2 bg-brand-yellow/10 rounded-xl">
+              <Activity className="h-4 w-4 text-brand-yellow" />
+            </div>
+          </div>
           <AgeDistributionChart data={ageGroups} />
         </div>
       </div>
 
-      {/* ── Medical Analytics Charts ── */}
+      {/* ── Performance Metrics Row ───────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+
+        {/* Record Completion */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900">Record Completion</h3>
+            <div className="p-2 bg-brand-teal/10 rounded-xl">
+              <Activity className="h-4 w-4 text-brand-teal" />
+            </div>
+          </div>
+          <div className="flex items-end gap-3 mb-4">
+            <p className="text-4xl font-bold text-brand-teal">{completionRate}%</p>
+            <p className="text-sm text-gray-400 mb-1.5">of records complete</p>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-brand-teal to-brand-teal/60 transition-all duration-700"
+              style={{ width: `${completionRate}%` }}
+            />
+          </div>
+          <div className="flex justify-between mt-2">
+            <p className="text-xs text-gray-400">{patientsWithCompleteRecords} complete</p>
+            <p className="text-xs text-gray-400">{totalPatients - patientsWithCompleteRecords} pending</p>
+          </div>
+        </div>
+
+        {/* Daily Average */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900">Daily Average</h3>
+            <div className="p-2 bg-brand-yellow/10 rounded-xl">
+              <Zap className="h-4 w-4 text-brand-yellow" />
+            </div>
+          </div>
+          <div className="flex items-end gap-3 mb-4">
+            <p className="text-4xl font-bold text-brand-yellow">{avgPatientsPerDay}</p>
+            <p className="text-sm text-gray-400 mb-1.5">patients / day</p>
+          </div>
+          <div className="space-y-2 mt-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">This month</span>
+              <span className="font-semibold text-gray-700">{patientsThisMonth} patients</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">Days elapsed</span>
+              <span className="font-semibold text-gray-700">{today.getDate()} days</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">Workload</span>
+              <span className={`font-semibold ${Number(avgPatientsPerDay) > 10 ? 'text-brand-red' : 'text-green-600'}`}>
+                {Number(avgPatientsPerDay) > 10 ? 'High' : 'Manageable'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Follow-up Compliance */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-gray-900">Follow-up Status</h3>
+            <div className={`p-2 rounded-xl ${overdueFollowUps > 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+              <Heart className={`h-4 w-4 ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-green-500'}`} />
+            </div>
+          </div>
+          <div className="flex items-end gap-3 mb-4">
+            <p className={`text-4xl font-bold ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-green-600'}`}>
+              {overdueFollowUps}
+            </p>
+            <p className="text-sm text-gray-400 mb-1.5">overdue</p>
+          </div>
+          <div className="space-y-2 mt-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">This week</span>
+              <span className="font-semibold text-gray-700">{followUpsThisWeek} scheduled</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">Upcoming</span>
+              <span className="font-semibold text-gray-700">{upcomingFollowUps} total</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">Status</span>
+              <span className={`font-semibold ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-green-600'}`}>
+                {overdueFollowUps > 0 ? `${overdueFollowUps} need attention` : 'All on track'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Medical Charts Row ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Common Conditions */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-brand-teal">Common Conditions</h3>
-            <div className="p-2 bg-brand-teal/10 rounded-lg">
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-gray-900">Common Conditions</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Top {topConditions.length} diagnoses detected</p>
+            </div>
+            <div className="p-2 bg-brand-teal/10 rounded-xl">
               <Activity className="h-4 w-4 text-brand-teal" />
             </div>
           </div>
           <TopConditionsChart data={topConditions} />
         </div>
 
-        {/* Top Prescribed Medicines */}
-        <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base sm:text-lg font-bold text-brand-red">Top Prescribed Medicines</h3>
-            <div className="p-2 bg-brand-red/10 rounded-lg">
+        {/* Top Medicines */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h3 className="font-bold text-gray-900">Top Prescribed Medicines</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Most frequently prescribed</p>
+            </div>
+            <div className="p-2 bg-brand-red/10 rounded-xl">
               <Stethoscope className="h-4 w-4 text-brand-red" />
             </div>
           </div>
@@ -410,120 +551,125 @@ const AnalyticsPage = async () => {
         </div>
       </div>
 
-      {/* ── Actionable Insights ── */}
-      <div className="bg-gradient-to-br from-brand-teal/5 via-white to-brand-yellow/5 p-4 sm:p-6 rounded-xl border border-brand-teal/20">
-        <h3 className="text-base sm:text-lg font-bold text-brand-teal mb-4 flex items-center gap-2">
-          <Activity className="h-5 w-5" />
-          Actionable Insights
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
+      {/* ── Actionable Insights ──────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Section header */}
+        <div className="flex items-center gap-3 px-5 sm:px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-brand-teal/5 to-transparent">
+          <div className="p-2 bg-brand-teal/10 rounded-xl">
+            <Zap className="h-4 w-4 text-brand-teal" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900">Actionable Insights</h3>
+            <p className="text-xs text-gray-400">AI-powered recommendations based on your data</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-100">
 
           {/* Growth */}
-          <div className="bg-white p-4 rounded-lg border-l-4 border-brand-teal shadow-sm">
+          <div className="p-5 sm:p-6 hover:bg-gray-50/60 transition-colors">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-brand-teal/10 rounded-lg flex-shrink-0">
-                <TrendingUp className="h-4 w-4 text-brand-teal" />
+              <div className={`p-2 rounded-xl flex-shrink-0 ${growthPositive ? 'bg-green-50' : 'bg-red-50'}`}>
+                <TrendingUp className={`h-4 w-4 ${growthPositive ? 'text-green-600' : 'text-brand-red'}`} />
               </div>
               <div>
-                <p className="font-bold text-brand-teal mb-1">Patient Growth Trend</p>
-                <p className="text-gray-600">
-                  {Number(growthRate) >= 0
-                    ? <>Your patient base has{' '}
-                        <span className="font-semibold text-green-600">grown by {growthRate}%</span> this month.{' '}
-                        {Number(growthRate) > 10 ? 'Excellent growth! Consider expanding clinic hours.' : 'Steady growth maintained.'}</>
-                    : <>Registrations have{' '}
-                        <span className="font-semibold text-brand-red">decreased by {Math.abs(Number(growthRate))}%</span>. Consider reviewing marketing strategies.</>}
+                <p className={`font-semibold text-sm mb-1 ${growthPositive ? 'text-green-700' : 'text-brand-red'}`}>
+                  Patient Growth Trend
+                </p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {growthPositive
+                    ? <>Your base <span className="font-semibold text-green-600">grew {growthRate}%</span> this month.{' '}
+                        {Number(growthRate) > 10 ? 'Excellent! Consider expanding clinic hours.' : 'Steady growth maintained.'}</>
+                    : <>Registrations <span className="font-semibold text-brand-red">decreased {Math.abs(Number(growthRate))}%</span>. Review outreach strategies.</>}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Follow-up alert */}
-          <div className={`bg-white p-4 rounded-lg border-l-4 shadow-sm ${overdueFollowUps > 0 ? 'border-brand-red' : 'border-brand-yellow'}`}>
+          {/* Follow-up */}
+          <div className="p-5 sm:p-6 hover:bg-gray-50/60 transition-colors">
             <div className="flex items-start gap-3">
-              <div className={`p-2 rounded-lg flex-shrink-0 ${overdueFollowUps > 0 ? 'bg-brand-red/10' : 'bg-brand-yellow/10'}`}>
+              <div className={`p-2 rounded-xl flex-shrink-0 ${overdueFollowUps > 0 ? 'bg-red-50' : 'bg-brand-yellow/10'}`}>
                 <AlertCircle className={`h-4 w-4 ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-brand-yellow'}`} />
               </div>
               <div>
-                <p className={`font-bold mb-1 ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-brand-yellow'}`}>
-                  {overdueFollowUps > 0 ? 'Urgent: Follow-up Required' : 'Follow-up Status'}
+                <p className={`font-semibold text-sm mb-1 ${overdueFollowUps > 0 ? 'text-brand-red' : 'text-brand-yellow'}`}>
+                  {overdueFollowUps > 0 ? 'Urgent: Overdue Follow-ups' : 'Follow-up Status'}
                 </p>
-                <p className="text-gray-600">
+                <p className="text-xs text-gray-500 leading-relaxed">
                   {overdueFollowUps > 0
-                    ? <><span className="font-semibold">{overdueFollowUps} patient{overdueFollowUps !== 1 ? 's have' : ' has'}</span> missed follow-up appointments.</>
-                    : <>All follow-ups on track! {upcomingFollowUps} appointment{upcomingFollowUps !== 1 ? 's' : ''} scheduled.</>}
+                    ? <><span className="font-semibold">{overdueFollowUps} patient{overdueFollowUps !== 1 ? 's' : ''}</span> missed follow-up dates and need immediate contact.</>
+                    : <>All follow-ups on track. <span className="font-semibold">{upcomingFollowUps}</span> appointment{upcomingFollowUps !== 1 ? 's' : ''} scheduled ahead.</>}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Record completion */}
-          <div className="bg-white p-4 rounded-lg border-l-4 border-brand-yellow shadow-sm">
+          {/* Completion */}
+          <div className="p-5 sm:p-6 hover:bg-gray-50/60 transition-colors">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-brand-yellow/10 rounded-lg flex-shrink-0">
+              <div className="p-2 bg-brand-yellow/10 rounded-xl flex-shrink-0">
                 <CheckCircle className="h-4 w-4 text-brand-yellow" />
               </div>
               <div>
-                <p className="font-bold text-brand-yellow mb-1">Record Completion</p>
-                <p className="text-gray-600">
+                <p className="font-semibold text-sm text-brand-yellow mb-1">Record Completion</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
                   {Number(completionRate) >= 80
-                    ? <>Excellent! <span className="font-semibold">{completionRate}%</span> of patient records are complete.</>
+                    ? <><span className="font-semibold text-green-600">{completionRate}%</span> of records are complete — excellent documentation!.</>
                     : Number(completionRate) >= 60
-                    ? <>Good at <span className="font-semibold">{completionRate}%</span>. {totalPatients - patientsWithCompleteRecords} records still need completion.</>
-                    : <>Only <span className="font-semibold">{completionRate}%</span> complete. Focus on documenting consultations and treatments.</>}
+                    ? <><span className="font-semibold">{completionRate}%</span> complete. {totalPatients - patientsWithCompleteRecords} records still need consultation notes.</>
+                    : <>Only <span className="font-semibold">{completionRate}%</span> complete. Prioritise documenting consultations and treatments.</>}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Daily workload */}
-          <div className="bg-white p-4 rounded-lg border-l-4 border-brand-teal shadow-sm">
+          {/* Demographics */}
+          <div className="p-5 sm:p-6 hover:bg-gray-50/60 transition-colors">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-brand-teal/10 rounded-lg flex-shrink-0">
+              <div className="p-2 bg-brand-teal/10 rounded-xl flex-shrink-0">
+                <Users className="h-4 w-4 text-brand-teal" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm text-brand-teal mb-1">Patient Demographics</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Primary group: <span className="font-semibold">{maleCount > femaleCount ? 'Male' : 'Female'}</span> ({Math.max(maleCount, femaleCount)} patients).{' '}
+                  {totalPatients > 0 && (
+                    <>Ratio: {((maleCount / totalPatients) * 100).toFixed(0)}% Male, {((femaleCount / totalPatients) * 100).toFixed(0)}% Female.</>
+                  )}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Workload */}
+          <div className="p-5 sm:p-6 hover:bg-gray-50/60 transition-colors">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-brand-teal/10 rounded-xl flex-shrink-0">
                 <Activity className="h-4 w-4 text-brand-teal" />
               </div>
               <div>
-                <p className="font-bold text-brand-teal mb-1">Daily Workload</p>
-                <p className="text-gray-600">
-                  Averaging <span className="font-semibold">{avgPatientsPerDay} patients/day</span> this month.
-                  {Number(avgPatientsPerDay) > 10 ? ' High volume — ensure adequate staffing.' : ' Manageable patient flow.'}
+                <p className="font-semibold text-sm text-brand-teal mb-1">Daily Workload</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Averaging <span className="font-semibold">{avgPatientsPerDay} patients/day</span> this month.{' '}
+                  {Number(avgPatientsPerDay) > 10 ? 'High volume — ensure adequate staffing.' : 'Manageable patient flow.'}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Weekly activity */}
-          <div className="bg-white p-4 rounded-lg border-l-4 border-brand-teal shadow-sm">
+          {/* Weekly */}
+          <div className="p-5 sm:p-6 hover:bg-gray-50/60 transition-colors">
             <div className="flex items-start gap-3">
-              <div className="p-2 bg-brand-teal/10 rounded-lg flex-shrink-0">
+              <div className="p-2 bg-brand-teal/10 rounded-xl flex-shrink-0">
                 <Calendar className="h-4 w-4 text-brand-teal" />
               </div>
               <div>
-                <p className="font-bold text-brand-teal mb-1">This Week&apos;s Activity</p>
-                <p className="text-gray-600">
-                  <span className="font-semibold">{patientsThisWeek} new patient{patientsThisWeek !== 1 ? 's' : ''}</span> registered and{' '}
-                  <span className="font-semibold">{followUpsThisWeek} follow-up{followUpsThisWeek !== 1 ? 's' : ''}</span> scheduled.
-                  {consultationsToday > 0 && <> {consultationsToday} consultation{consultationsToday !== 1 ? 's' : ''} today.</>}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Demographics insight */}
-          <div className="bg-white p-4 rounded-lg border-l-4 border-brand-yellow shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-brand-yellow/10 rounded-lg flex-shrink-0">
-                <Users className="h-4 w-4 text-brand-yellow" />
-              </div>
-              <div>
-                <p className="font-bold text-brand-yellow mb-1">Patient Demographics</p>
-                <p className="text-gray-600">
-                  Primary group: <span className="font-semibold">{maleCount > femaleCount ? 'Male' : 'Female'}</span>{' '}
-                  ({Math.max(maleCount, femaleCount)} patients).
-                  {totalPatients > 0 && (
-                    <> Ratio: {((maleCount / totalPatients) * 100).toFixed(0)}% Male,{' '}
-                    {((femaleCount / totalPatients) * 100).toFixed(0)}% Female.</>
-                  )}
+                <p className="font-semibold text-sm text-brand-teal mb-1">This Week</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  <span className="font-semibold">{patientsThisWeek} new patient{patientsThisWeek !== 1 ? 's' : ''}</span> registered
+                  {' '}and <span className="font-semibold">{followUpsThisWeek} follow-up{followUpsThisWeek !== 1 ? 's' : ''}</span> scheduled.
+                  {consultationsToday > 0 && <> <span className="font-semibold">{consultationsToday}</span> consultation{consultationsToday !== 1 ? 's' : ''} today.</>}
                 </p>
               </div>
             </div>
@@ -531,6 +677,7 @@ const AnalyticsPage = async () => {
 
         </div>
       </div>
+
     </div>
   );
 };

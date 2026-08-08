@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Calendar, Clock, Plus, Filter, User, Phone } from 'lucide-react';
+import { Calendar, Clock, Plus, Filter, User, Phone, CalendarCheck } from 'lucide-react';
 import { formatDate } from '@/utils/formatDate';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
+import { PageHero } from '@/components/ui/page-hero';
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -69,21 +70,23 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
-            Appointments
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage patient appointments and schedules</p>
-        </div>
-        <Link href="/appointments/new">
-          <button className="flex items-center space-x-2 px-6 py-3 bg-brand-teal text-white rounded-lg hover:bg-brand-teal/90 transition-colors shadow-md">
-            <Plus className="h-5 w-5" />
-            <span>Book Appointment</span>
-          </button>
-        </Link>
-      </div>
+      <PageHero
+        eyebrow="Schedule"
+        eyebrowIcon={<CalendarCheck className="h-3.5 w-3.5" />}
+        title="Appointments"
+        subtitle="Manage patient appointments and schedules"
+        stats={[
+          { label: 'Showing', value: appointments.length },
+        ]}
+        actions={
+          <Link href="/appointments/new">
+            <button className="flex items-center gap-2 rounded-xl bg-white/20 border border-white/20 px-4 py-2 text-sm font-semibold text-white hover:bg-white/30 transition-all">
+              <Plus className="h-4 w-4" />
+              Book
+            </button>
+          </Link>
+        }
+      />
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">

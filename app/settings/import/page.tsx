@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 import { notificationManager } from '@/lib/notifications';
+import { PageHero } from '@/components/ui/page-hero';
 
 type Step = 'upload' | 'mapping' | 'validation' | 'importing' | 'complete';
 type DuplicateStrategy = 'skip' | 'update' | 'create';
@@ -212,10 +213,13 @@ export default function ImportPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Import Patient Data</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Upload your existing patient data from Excel, CSV, or JSON files</p>
-      </div>
+      <PageHero
+        eyebrow="Settings"
+        eyebrowIcon={<Upload className="h-3.5 w-3.5" />}
+        title="Import Patient Data"
+        subtitle="Upload existing patient data from Excel, CSV, or JSON files"
+        stats={[{ label: 'Step', value: `${stepIdx + 1} / ${STEPS.length}` }]}
+      />
 
       {/* Progress Steps */}
       <div className="flex items-center justify-between mb-8">

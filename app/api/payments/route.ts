@@ -34,11 +34,11 @@ export const GET = withMiddleware(
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = (page - 1) * limit;
 
-    if (!patientId) {
-      throw ApiErrors.badRequest('Patient ID is required');
+    // patientId is optional — if omitted, return all payments (for the payments dashboard)
+    const whereClause: any = {};
+    if (patientId) {
+      whereClause.patientId = patientId;
     }
-
-    const whereClause: any = { patientId };
     if (status) {
       whereClause.status = status;
     }

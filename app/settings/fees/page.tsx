@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, X, DollarSign } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { notificationManager } from '@/lib/notifications';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface ServiceFee {
   id: string;
@@ -155,22 +156,24 @@ export default function FeesManagementPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Fee Management</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage OPD fees and service charges</p>
-        </div>
-        {!isAdding && !editingId && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-teal text-white rounded-lg font-medium hover:bg-brand-teal/90 transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            Add Fee
-          </button>
-        )}
-      </div>
+      <PageHero
+        eyebrow="Settings"
+        eyebrowIcon={<DollarSign className="h-3.5 w-3.5" />}
+        title="Fee Management"
+        subtitle="Manage OPD fees and service charges"
+        stats={[{ label: 'Services', value: fees.length }]}
+        actions={
+          !isAdding && !editingId ? (
+            <button
+              onClick={() => setIsAdding(true)}
+              className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/20 px-4 py-2 text-sm font-semibold text-white hover:bg-white/30 transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Add Fee
+            </button>
+          ) : undefined
+        }
+      />
 
       {/* Add/Edit Form */}
       {(isAdding || editingId) && (

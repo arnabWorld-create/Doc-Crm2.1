@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Download, FileSpreadsheet, FileJson, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { notificationManager } from '@/lib/notifications';
+import { PageHero } from '@/components/ui/page-hero';
 
 export default function ExportPage() {
   const [isExporting, setIsExporting] = useState(false);
@@ -52,12 +53,12 @@ export default function ExportPage() {
   
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">Export Your Data</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Download all your patient data in various formats for backup or migration
-        </p>
-      </div>
+      <PageHero
+        eyebrow="Settings"
+        eyebrowIcon={<Download className="h-3.5 w-3.5" />}
+        title="Export Your Data"
+        subtitle="Download all patient data in Excel, JSON or CSV for backup or migration"
+      />
       
       {/* Export Options */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">

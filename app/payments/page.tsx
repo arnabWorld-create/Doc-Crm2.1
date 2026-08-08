@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { CardSkeleton } from '@/components/LoadingStates';
 import { notificationManager } from '@/lib/notifications';
 import { PaymentAnalytics } from '@/components/PaymentAnalytics';
+import { PageHero } from '@/components/ui/page-hero';
 
 interface Invoice {
   id: string;
@@ -79,13 +80,17 @@ export default function PaymentsPage() {
         setPayments(Array.isArray(paymentsData) ? paymentsData : paymentsData.data || paymentsData.payments || []);
       }
 
-      // Fetch visits for patient analytics
+      // Fetch visits for patient analytics — include fees for accurate revenue
       const visitsRes = await fetch('/api/patients?analytics=true&limit=1000');
       if (visitsRes.ok) {
         const patientsData = await visitsRes.json();
         const allVisits: Visit[] = [];
         
         if (patientsData.data) {
+          // patientsData.data only has visit counts (_count), not full visit records.
+          // Fetch full visit data per patient would be N+1. Instead, use the
+          // /api/invoices/summary which already has fee data from visit_fees.
+          // Visits here are only needed for paidBy / patientId grouping.
           patientsData.data.forEach((patient: any) => {
             if (patient.visits) {
               patient.visits.forEach((visit: any) => {
@@ -96,6 +101,7 @@ export default function PaymentsPage() {
                   visitDate: visit.visitDate,
                   notes: visit.notes,
                   paidBy: visit.paidBy,
+                  fees: visit.fees || [],
                 });
               });
             }
@@ -396,16 +402,17 @@ export default function PaymentsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal">FinX</h1>
-          <p className="text-gray-500 mt-0.5 text-sm">Financial insights & payment management</p>
-        </div>
-        <div className="p-3 bg-brand-teal/10 rounded-lg">
-          <CreditCard className="w-6 h-6 text-brand-teal" />
-        </div>
-      </div>
+      <PageHero
+        eyebrow="FinX"
+        eyebrowIcon={<CreditCard className="h-3.5 w-3.5" />}
+        title="Financial Overview"
+        subtitle="Invoices, payments and revenue analytics"
+        stats={[
+          { label: 'Invoiced', value: `₹${totalInvoiced.toFixed(0)}` },
+          { label: 'Collected', value: `₹${totalPaid.toFixed(0)}`, color: 'green' },
+          { label: 'Pending', value: `₹${Math.max(0, pendingAmount).toFixed(0)}`, color: pendingAmount > 0 ? 'yellow' : 'white' },
+        ]}
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

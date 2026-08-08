@@ -23,10 +23,12 @@ export function formatPatientId(id: string): string {
 
 // Search patients by name, contact, or patient ID
 // Uses PostgreSQL full-text search for better performance at scale.
+// Falls back to ILIKE search if full-text vectors are not populated.
 //
-// FIX: Replaced N+1 query pattern (1 search + 1 query per result = up to 51 queries)
-// with a single SQL LATERAL JOIN that fetches the last visit for all matched
-// patients in one round-trip. Safe at any scale — 1,000 / 10,000 / 100,000 patients.
+// FIX: The full-text search requires search_vector to be populated via a
+// DB trigger. When vectors are empty, the tsvector query succeeds but returns
+// 0 rows. We now try full-text first and fall back to ILIKE automatically
+// when full-text returns nothing — no silent zero-result failures.
 export async function searchPatients(query: string) {
   if (!query || query.trim().length === 0) {
     return [];
@@ -34,103 +36,106 @@ export async function searchPatients(query: string) {
 
   const searchTerm = query.trim();
 
-  try {
-    const tsQuery = searchTerm
-      .split(/\s+/)
-      .filter(term => term.length > 0)
-      .map(term => term.replace(/[^a-zA-Z0-9]/g, ''))
-      .filter(term => term.length > 0)
-      .join(' & ');
+  // Build a tsquery from the search term
+  const tsQuery = searchTerm
+    .split(/\s+/)
+    .filter(term => term.length > 0)
+    .map(term => term.replace(/[^a-zA-Z0-9]/g, ''))
+    .filter(term => term.length > 0)
+    .join(' & ');
 
-    if (!tsQuery) {
-      return [];
+  // Try full-text search first if we have a valid tsQuery
+  if (tsQuery) {
+    try {
+      const patients = await prisma.$queryRaw<any[]>`
+        SELECT
+          p.id,
+          p."patientId",
+          p.name,
+          p.age,
+          p.gender,
+          p.contact,
+          p.address,
+          p."bloodGroup",
+          p.allergies,
+          p."chronicConditions",
+          p."createdAt",
+          p."updatedAt",
+          ts_rank(p.search_vector, to_tsquery('english', ${tsQuery})) AS rank,
+          lv.id          AS last_visit_id,
+          lv."visitDate" AS last_visit_date,
+          lv."visitType" AS last_visit_type,
+          lv.diagnosis   AS last_visit_diagnosis
+        FROM patients p
+        LEFT JOIN LATERAL (
+          SELECT v.id, v."visitDate", v."visitType", v.diagnosis
+          FROM visits v
+          WHERE v."patientId" = p.id
+          ORDER BY v."visitDate" DESC
+          LIMIT 1
+        ) lv ON true
+        WHERE p.search_vector @@ to_tsquery('english', ${tsQuery})
+        ORDER BY rank DESC, p."updatedAt" DESC
+        LIMIT 50
+      `;
+
+      // If full-text found results, return them
+      if (patients.length > 0) {
+        return patients.map(row => shapeSearchResult(row));
+      }
+      // Otherwise fall through to ILIKE fallback below
+    } catch (error) {
+      // Full-text search failed (e.g. invalid token) — fall through to ILIKE
+      console.warn('Full-text search failed, falling back to ILIKE:', error);
     }
-
-    // Single query: full-text search + last visit via LATERAL JOIN.
-    // Previously this was two round-trips: one search then N individual
-    // visit queries (one per patient). Now it is always exactly 1 query.
-    const patients = await prisma.$queryRaw<any[]>`
-      SELECT
-        p.id,
-        p."patientId",
-        p.name,
-        p.age,
-        p.gender,
-        p.contact,
-        p.address,
-        p."bloodGroup",
-        p.allergies,
-        p."chronicConditions",
-        p."createdAt",
-        p."updatedAt",
-        ts_rank(p.search_vector, to_tsquery('english', ${tsQuery})) AS rank,
-        lv.id          AS last_visit_id,
-        lv."visitDate" AS last_visit_date,
-        lv."visitType" AS last_visit_type,
-        lv.diagnosis   AS last_visit_diagnosis
-      FROM patients p
-      LEFT JOIN LATERAL (
-        SELECT v.id, v."visitDate", v."visitType", v.diagnosis
-        FROM visits v
-        WHERE v."patientId" = p.id
-        ORDER BY v."visitDate" DESC
-        LIMIT 1
-      ) lv ON true
-      WHERE p.search_vector @@ to_tsquery('english', ${tsQuery})
-      ORDER BY rank DESC, p."updatedAt" DESC
-      LIMIT 50
-    `;
-
-    // Shape the result to match the expected { ...patient, visits: [...] } format
-    return patients.map(row => {
-      const lastVisit = row.last_visit_id
-        ? [{
-            id: row.last_visit_id,
-            visitDate: row.last_visit_date,
-            visitType: row.last_visit_type,
-            diagnosis: row.last_visit_diagnosis,
-          }]
-        : [];
-
-      return {
-        id: row.id,
-        patientId: row.patientId,
-        name: row.name,
-        age: row.age,
-        gender: row.gender,
-        contact: row.contact,
-        address: row.address,
-        bloodGroup: row.bloodGroup,
-        allergies: row.allergies,
-        chronicConditions: row.chronicConditions,
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-        visits: lastVisit,
-      };
-    });
-  } catch (error) {
-    // Fallback to LIKE search if full-text search is not available
-    console.warn('Full-text search failed, falling back to LIKE search:', error);
-
-    // Fallback also avoids N+1 — Prisma include with take:1 is a single JOIN
-    return await prisma.patient.findMany({
-      where: {
-        OR: [
-          { name: { contains: searchTerm, mode: 'insensitive' } },
-          { contact: { contains: searchTerm } },
-          { patientId: { contains: searchTerm, mode: 'insensitive' } },
-        ],
-      },
-      include: {
-        visits: {
-          orderBy: { visitDate: 'desc' },
-          take: 1,
-        },
-      },
-      take: 50,
-      orderBy: { updatedAt: 'desc' },
-    });
   }
+
+  // ILIKE fallback — used when search_vector is not populated OR full-text
+  // returned no results. Single JOIN query, no N+1.
+  return await prisma.patient.findMany({
+    where: {
+      OR: [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { contact: { contains: searchTerm } },
+        { patientId: { contains: searchTerm, mode: 'insensitive' } },
+      ],
+    },
+    include: {
+      visits: {
+        orderBy: { visitDate: 'desc' },
+        take: 1,
+      },
+    },
+    take: 50,
+    orderBy: { updatedAt: 'desc' },
+  });
+}
+
+function shapeSearchResult(row: any) {
+  const lastVisit = row.last_visit_id
+    ? [{
+        id: row.last_visit_id,
+        visitDate: row.last_visit_date,
+        visitType: row.last_visit_type,
+        diagnosis: row.last_visit_diagnosis,
+      }]
+    : [];
+
+  return {
+    id: row.id,
+    patientId: row.patientId,
+    name: row.name,
+    age: row.age,
+    gender: row.gender,
+    contact: row.contact,
+    address: row.address,
+    bloodGroup: row.bloodGroup,
+    allergies: row.allergies,
+    chronicConditions: row.chronicConditions,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    visits: lastVisit,
+  };
 }
 
 // Get recent patients (last 30 days)

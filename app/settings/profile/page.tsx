@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, User, Phone, Mail, Clock, Upload, Save, Image as ImageIcon } from 'lucide-react';
+import { Building2, User, Phone, Mail, Clock, Upload, Save, Image as ImageIcon, Settings } from 'lucide-react';
 import Image from 'next/image';
+import { PageHero } from '@/components/ui/page-hero';
 
 export default function ClinicProfilePage() {
   const router = useRouter();
@@ -179,14 +180,12 @@ export default function ClinicProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-brand-teal leading-tight">
-          Clinic Profile
-        </h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          Manage your clinic information and doctor details for prescriptions
-        </p>
-      </div>
+      <PageHero
+        eyebrow="Settings"
+        eyebrowIcon={<Settings className="h-3.5 w-3.5" />}
+        title="Clinic Profile"
+        subtitle="Manage your clinic information and doctor details for prescriptions"
+      />
 
       {message && (
         <div className={`p-4 rounded-lg ${message.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>

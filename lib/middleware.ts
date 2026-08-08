@@ -270,6 +270,22 @@ export function withErrorHandling(
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
+
+      // FIX: requirePermission / requireAuth return a NextResponse error object
+      // which route handlers throw via `if (error) throw error`. We must pass
+      // it straight back — not wrap it in a 500 — otherwise any unauthenticated
+      // or forbidden request becomes an opaque 500 instead of a clean 401/403.
+      if (error instanceof NextResponse) {
+        logger.info('API Request', {
+          method: request.method,
+          endpoint,
+          statusCode: error.status,
+          duration,
+          ip,
+        });
+        return error;
+      }
+
       logger.error('API Request Failed', error, {
         method: request.method,
         endpoint,

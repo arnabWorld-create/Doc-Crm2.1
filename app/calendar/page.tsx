@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import CalendarView from '@/components/CalendarView';
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHero } from '@/components/ui/page-hero';
+import { Calendar } from 'lucide-react';
 
 // Cache calendar for 1 minute (60 seconds) - balance between freshness and performance
 // This reduces database queries by 50% while keeping data relatively fresh
@@ -98,9 +99,15 @@ const CalendarPage = async ({ searchParams }: CalendarPageProps) => {
 
   return (
     <div className="space-y-5">
-      <PageHeader
+      <PageHero
+        eyebrow="Calendar"
+        eyebrowIcon={<Calendar className="h-3.5 w-3.5" />}
         title="Appointment Calendar"
-        subtitle="View consultations and follow-up appointments by date"
+        subtitle={`${new Date(currentYear, currentMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`}
+        stats={[
+          { label: 'Consultations', value: consultations.length },
+          { label: 'Follow-ups', value: followUps.length },
+        ]}
       />
       <CalendarView
         consultations={consultations}

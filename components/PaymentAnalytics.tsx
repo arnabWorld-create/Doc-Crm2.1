@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { CardSkeleton } from '@/components/LoadingStates';
 import { PatientVisitAnalytics } from '@/components/PatientVisitAnalytics';
-import { extractFeesFromNotes } from '@/lib/fee-utils';
 
 interface PaymentAnalytics {
   totalIncome: number;
@@ -62,6 +61,7 @@ interface Visit {
   visitDate: string;
   notes?: string;
   paidBy?: string;
+  fees?: { total: number }[];
 }
 
 export function PaymentAnalytics({ 
@@ -162,8 +162,11 @@ export function PaymentAnalytics({
     const patientVisitMap = new Map<string, { name: string; visits: number; totalRevenue: number }>();
     
     filteredVisits.forEach(visit => {
-      const feesData = extractFeesFromNotes(visit.notes);
-      const visitRevenue = feesData ? feesData.total : 0;
+      // Use visit.fees array (from VisitFee table) for accurate revenue.
+      // extractFeesFromNotes is deprecated and always returns null for new visits.
+      const visitRevenue = visit.fees
+        ? visit.fees.reduce((sum, fee) => sum + (fee.total || 0), 0)
+        : 0;
       
       const key = visit.patientId;
       const existing = patientVisitMap.get(key) || { 
@@ -331,10 +334,12 @@ export function PaymentAnalytics({
                   <p className="text-3xl font-bold text-gray-900 mt-2">
                     ₹{analytics.totalIncome.toFixed(0)}
                   </p>
-                  <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                    <ArrowUpRight className="w-3 h-3" />
-                    +12% from last period
-                  </p>
+                  {analytics.conversionRate > 0 && (
+                    <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                      <ArrowUpRight className="w-3 h-3" />
+                      {analytics.conversionRate.toFixed(1)}% collected
+                    </p>
+                  )}
                 </div>
                 <div className="p-3 bg-green-100 rounded-lg">
                   <DollarSign className="w-6 h-6 text-green-600" />
